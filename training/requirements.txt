@@ -1,0 +1,6 @@
+# Python 3.9+ (macOS system Python works). Installed into training/.venv by setup.sh.
+numpy<2.1
+onnxruntime==1.19.2
+torch==2.8.0
+onnx
+sherpa-onnx==2.0.1

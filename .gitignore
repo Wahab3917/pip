@@ -1,0 +1,21 @@
+# Gradle / Android Studio
+*.iml
+.gradle/
+build/
+.kotlin/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/.idea/*
+!/.idea/codeStyles
+!/.idea/inspectionProfiles
+
+# macOS
+.DS_Store
+
+# Personal data and generated artefacts: voice recordings, training data, virtualenvs.
+# (training/.gitignore covers training/data, training/out and the venvs too.)
+*.pt
+*.pcm
+last10s.wav

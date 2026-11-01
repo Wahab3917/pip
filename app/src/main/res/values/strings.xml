@@ -1,0 +1,52 @@
+<resources>
+    <!-- All user-facing copy lives here. The design pass rewrites wording in this file only. -->
+    <string name="app_name">Pip</string>
+
+    <!-- Notification -->
+    <string name="channel_listening_name">Listening</string>
+    <string name="channel_listening_description">Shown while Pip is listening for \"Hey Pip\".</string>
+    <string name="channel_alerts_name">Alerts</string>
+    <string name="notif_listening_title">Pip is listening</string>
+    <string name="notif_listening_text">Say \"Hey Pip\" to catch a thought.</string>
+    <string name="notif_paused_title">Pip is paused</string>
+    <string name="notif_paused_until">Back at %1$s.</string>
+    <string name="notif_action_pause_hour">Pause for 1 hour</string>
+    <string name="notif_action_resume">Resume</string>
+    <string name="notif_boot_title">Pip isn\'t listening</string>
+    <string name="notif_boot_text">Tap to start listening again after the restart.</string>
+
+    <!-- Engine status (shared by notification and home screen) -->
+    <string name="status_off">Off</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_listening">Listening for \"Hey Pip\"</string>
+    <string name="status_capturing">Catching a thought…</string>
+    <string name="status_paused_user">Paused by you</string>
+    <string name="status_paused_call">Paused during a call</string>
+    <string name="status_paused_mic_busy">Paused: another app is using the mic</string>
+    <string name="status_paused_battery_saver">Paused: battery saver is on</string>
+    <string name="status_error">Microphone unavailable, retrying…</string>
+
+    <!-- Home screen -->
+    <string name="home_listening_label">Listening</string>
+    <string name="home_sensitivity_label">Sensitivity</string>
+    <string name="home_sensitivity_strict">Fewer false wakes</string>
+    <string name="home_sensitivity_loose">Hears you more easily</string>
+    <string name="home_sensitivity_detail">wakes above %1$.2f</string>
+    <string name="home_battery_saver_label">Pause in battery saver</string>
+    <string name="home_recordings_header">Caught thoughts</string>
+    <string name="home_recordings_empty">Nothing caught yet. Say \"Hey Pip\".</string>
+    <string name="home_play">Play</string>
+    <string name="home_stop">Stop</string>
+    <string name="thought_duration">%1$d:%2$02d</string>
+    <string name="thought_status_caught">Caught</string>
+    <string name="thought_status_transcribing">Transcribing</string>
+    <string name="thought_status_ready">Ready</string>
+    <string name="thought_status_failed">Failed</string>
+
+    <!-- Permissions -->
+    <string name="perm_mic_needed">Pip needs the microphone to hear \"Hey Pip\". Audio never leaves this phone.</string>
+    <string name="perm_mic_grant">Allow microphone</string>
+    <string name="perm_mic_denied_forever">Microphone access was denied. Turn it on in Settings › Permissions.</string>
+    <string name="perm_open_settings">Open settings</string>
+    <string name="perm_notifications_hint">Notifications are off, so you won\'t see Pip\'s pause button. Pip still listens.</string>
+</resources>
