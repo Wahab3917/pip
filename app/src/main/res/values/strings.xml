@@ -50,6 +50,13 @@
     <string name="note_failed">Couldn\'t transcribe this one. The recording above is safe.</string>
     <string name="note_retry">Try again</string>
     <string name="note_no_words">No words heard. Play the recording above to listen.</string>
+    <string name="note_edit">Edit</string>
+    <string name="note_save">Save</string>
+    <string name="note_cancel">Cancel</string>
+    <string name="note_transcript_label">Note</string>
+    <string name="note_delete">Delete</string>
+    <string name="note_delete_title">Delete this thought?</string>
+    <string name="note_delete_text">The text and the recording are removed from this phone. This can\'t be undone.</string>
 
     <!-- Quick-settings tile and home-screen widget -->
     <string name="tile_label">Pip</string>

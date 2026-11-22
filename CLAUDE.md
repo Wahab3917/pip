@@ -5,7 +5,7 @@ appears. Trigger → short "listening" cue → speak → after ~2 s of silence a
 and the note is saved. Three triggers: say "Hey Pip" (when switched on), tap the "Pip" tile in the
 quick-settings panel (works on the lock screen), or tap "Catch" on the home-screen widget.
 In the background each note is then transcribed offline; opening a note shows the text with
-the recording above it. Everything stays on the device.
+the recording above it, and lets you edit the text or delete the note. Everything stays on the device.
 
 **Scope is deliberately small (user decision, 2026-11-21): Pip only saves ideas.** No categories,
 tasks, reminders or a second tile. Notes are in English.
@@ -103,6 +103,12 @@ READY with the text, or FAILED (note screen has "Try again"). On start the job p
 CAUGHT (a crash mid-job); `PipApp` also starts the job on every launch, so old Phase-1 notes get transcribed.
 One job at a time = one copy of the model in memory. Threads: min(cores, 4).
 
+### Edit and delete (note screen)
+Edit (pencil) is offered only when the status is READY or FAILED, so the job can't overwrite the user's words;
+saving sets the text and status READY (`editTranscript`, trimmed). Back while editing cancels the edit.
+Delete (bin, with a confirm dialog) is a real delete: Room row first (leaves the list at once), then the WAV.
+`state = LET_GO` is not used for this. `NoteEditingTest` (androidTest) covers both on the real database.
+
 ## Models (in `app/src/main/assets`: ~4 MB in git + the ~160 MB speech model, fetched)
 | File | Size | What |
 |---|---|---|
@@ -199,14 +205,18 @@ If the shell can't find Java: `export JAVA_HOME="/Applications/Android Studio.ap
 adb lives in `~/Library/Android/sdk/platform-tools`.
 
 ## Plan
+Order agreed 2026-11-22: edit + delete notes (done) → design pass → release build for daily use.
+
 1. DONE: "Hey Pip" + capture + storage (custom wake word, works on the A32).
-2. DONE on the emulator (2026-11-21), NOT yet on the A32: "Pip" quick-settings tile, widget (Catch, Hey Pip
+2. DONE and confirmed on the A32 (2026-11-22; tile works from the lock screen, transcripts good, ~3 s per
+   note + 5.7 s model load). Also edit + delete notes (emulator-tested). Was: "Pip" quick-settings tile, widget (Catch, Hey Pip
    on/off, Open), offline transcription, note screen (audio player on top, transcript below), notes list shows text.
    NEXT on the phone: `tools/fetch_speech_model.sh`, install, run `connectedDebugAndroidTest` (transcription
    speed!), add the tile (swipe down → ⋮ → Edit buttons) and widget, try the tile on the LOCK SCREEN, catch a few
    real English notes and check the transcripts (`training/compare_asr.py` on notes pulled from the phone).
 3. Later, if wanted: onboarding (incl. Samsung "Unrestricted" battery setting), battery tuning (energy gate for
-   the wake word: ~30 ms CPU per 80 ms chunk on the A32), search, export, delete a note, delete audio after N days.
+   the wake word: ~30 ms CPU per 80 ms chunk on the A32; user doesn't plan long "Hey Pip" sessions, so not
+   needed now), search, export, delete audio after N days.
 
 Dropped (2026-11-21): categories, tasks, reminders, a second "Hey Pip" tile, a timed "listen for 30 min" mode.
 Later and separate: design pass (theme layer only), connectors.

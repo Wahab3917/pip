@@ -31,6 +31,9 @@ interface ThoughtDao {
     @Query("UPDATE thoughts SET transcript = :transcript, status = 'READY' WHERE id = :id")
     suspend fun setTranscript(id: UUID, transcript: String)
 
+    @Query("DELETE FROM thoughts WHERE id = :id")
+    suspend fun delete(id: UUID)
+
     /** A transcription that was running when the app died never finished: queue it again. */
     @Query("UPDATE thoughts SET status = 'CAUGHT' WHERE status = 'TRANSCRIBING'")
     suspend fun requeueInterrupted()

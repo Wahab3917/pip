@@ -73,6 +73,11 @@ class MainActivity : ComponentActivity() {
                         onTogglePlay = { viewModel.togglePlayback(open) },
                         onSeek = { viewModel.seek(open, it) },
                         onRetry = { viewModel.retryTranscription(open.id) },
+                        onSaveTranscript = { viewModel.editTranscript(open.id, it) },
+                        onDelete = {
+                            viewModel.delete(open)
+                            openId = null
+                        },
                         onBack = {
                             viewModel.stopPlayback()
                             openId = null

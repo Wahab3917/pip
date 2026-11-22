@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,10 +50,14 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * One note: the audio player on top, the transcript below. Stateless, like HomeScreen.
+ * One note: the audio player on top, the transcript below, and Edit / Delete in the top bar.
+ * Stateless apart from the edit draft and the delete dialog, which only matter on this screen.
  *
  * The transcript is what the note *is*; the recording is kept as the safety net (the
  * transcript can be wrong, the audio can't), so it's always one tap away.
+ *
+ * Editing is offered only once the transcript is done (READY) or has failed, so the background
+ * job can't overwrite the user's words. Back while editing cancels the edit.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,9 +68,16 @@ fun NoteScreen(
     onTogglePlay: () -> Unit,
     onSeek: (Int) -> Unit,
     onRetry: () -> Unit,
+    onSaveTranscript: (String) -> Unit,
+    onDelete: () -> Unit,
     onBack: () -> Unit,
 ) {
-    BackHandler(onBack = onBack)
+    // The text being edited, or null when not editing. Saveable, so rotating doesn't lose it.
+    var draft by rememberSaveable(thought.id) { mutableStateOf<String?>(null) }
+    var confirmDelete by rememberSaveable(thought.id) { mutableStateOf(false) }
+    val canEdit = thought.status == ThoughtStatus.READY || thought.status == ThoughtStatus.FAILED
+
+    BackHandler { if (draft != null) draft = null else onBack() }
     val context = LocalContext.current
     Scaffold(
         topBar = {
@@ -79,6 +93,24 @@ fun NoteScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(painterResource(R.drawable.ic_back), stringResource(R.string.note_back))
+                    }
+                },
+                actions = {
+                    val editing = draft
+                    if (editing != null) {
+                        TextButton(onClick = { draft = null }) { Text(stringResource(R.string.note_cancel)) }
+                        TextButton(onClick = { onSaveTranscript(editing); draft = null }) {
+                            Text(stringResource(R.string.note_save))
+                        }
+                    } else {
+                        if (canEdit) {
+                            IconButton(onClick = { draft = thought.transcript.orEmpty() }) {
+                                Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.note_edit))
+                            }
+                        }
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.note_delete))
+                        }
                     }
                 },
             )
@@ -99,8 +131,33 @@ fun NoteScreen(
                 onTogglePlay = onTogglePlay,
                 onSeek = onSeek,
             )
-            Transcript(thought, onRetry)
+            val editing = draft
+            if (editing != null) {
+                OutlinedTextField(
+                    value = editing,
+                    onValueChange = { draft = it },
+                    label = { Text(stringResource(R.string.note_transcript_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                )
+            } else {
+                Transcript(thought, onRetry)
+            }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.note_delete_title)) },
+            text = { Text(stringResource(R.string.note_delete_text)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.note_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.note_cancel)) }
+            },
+        )
     }
 }
 
@@ -201,7 +258,7 @@ private fun NoteScreenPreview() {
             ),
             player = ThoughtPlayer.State(),
             positionMs = { 0 },
-            onTogglePlay = {}, onSeek = {}, onRetry = {}, onBack = {},
+            onTogglePlay = {}, onSeek = {}, onRetry = {}, onSaveTranscript = {}, onDelete = {}, onBack = {},
         )
     }
 }

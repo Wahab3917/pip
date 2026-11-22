@@ -45,6 +45,20 @@ class ThoughtRepository(
 
     fun audioFile(thought: Thought): File = File(filesDir, thought.audioPath)
 
+    /** The user corrected the transcript. Also how a FAILED note gets text by hand. */
+    suspend fun editTranscript(id: UUID, text: String) = dao.setTranscript(id, text.trim())
+
+    /**
+     * Deletes a thought for good: the row first (so it leaves the list at once), then the audio.
+     * If the background job is transcribing it right now, its later update simply finds no row.
+     */
+    suspend fun delete(thought: Thought) = withContext(Dispatchers.IO) {
+        dao.delete(thought.id)
+        val file = audioFile(thought)
+        if (!file.delete() && file.exists()) Log.w(PIP_LOG_TAG, "[Storage] couldn't delete ${file.name}")
+        Log.i(PIP_LOG_TAG, "[Storage] deleted thought ${thought.id}")
+    }
+
     /** "Try again" for a failed transcript: put it back in the queue. */
     suspend fun retryTranscription(id: UUID) {
         dao.setStatus(id, ThoughtStatus.CAUGHT)

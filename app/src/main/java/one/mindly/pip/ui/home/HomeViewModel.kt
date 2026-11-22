@@ -59,6 +59,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { graph.repository.retryTranscription(id) }
     }
 
+    fun editTranscript(id: UUID, text: String) {
+        viewModelScope.launch { graph.repository.editTranscript(id, text) }
+    }
+
+    fun delete(thought: Thought) {
+        if (player.state.value.id == thought.id) player.stop()
+        viewModelScope.launch { graph.repository.delete(thought) }
+    }
+
     fun togglePlayback(thought: Thought) =
         player.toggle(thought.id, graph.repository.audioFile(thought))
 
