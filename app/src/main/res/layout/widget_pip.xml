@@ -1,61 +1,173 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Home-screen widget (PipWidget): Catch, Hey Pip on/off, Open. Colors and sizes from colors.xml / dimens.xml. -->
+<!--
+    Home-screen widget (PipWidget), 2 x 2, top to bottom:
+      top row  "Pip ›" (tap: open the app) and the Hey Pip switch with its label under it (tap: on/off)
+      the rest one big round button: the seed and "Catch a\nthought", or, while catching, a stop
+               square and "Listening…". Tapping it catches, or finishes and saves the note.
+    Light version: colours from the wl_ set; PipWidget picks the layout from Pip's dark-mode setting.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
+    android:background="@drawable/widget_bg_l"
+    android:orientation="vertical"
     android:padding="@dimen/widget_padding">
 
     <LinearLayout
-        android:id="@+id/widget_catch"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:background="@drawable/widget_button"
-        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="top"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="@dimen/widget_seed"
-            android:layout_height="@dimen/widget_seed"
-            android:layout_marginEnd="@dimen/widget_padding"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_seed_solid"
-            android:tint="@color/on_sprout" />
+        <LinearLayout
+            android:id="@+id/widget_open"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/widget_wordmark_drop"
+            android:paddingBottom="@dimen/widget_hit_pad">
 
-        <TextView
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/instrument_sans"
+                android:includeFontPadding="false"
+                android:text="@string/app_name"
+                android:textColor="@color/wl_ink"
+                android:textSize="@dimen/widget_wordmark_text"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:layout_width="@dimen/widget_chevron"
+                android:layout_height="@dimen/widget_chevron"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="@color/wl_graphite" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_hey"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:fontFamily="@font/instrument_sans"
-            android:text="@string/widget_catch"
-            android:textColor="@color/on_sprout"
-            android:textSize="@dimen/widget_catch_text"
-            android:textStyle="bold" />
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingLeft="@dimen/widget_hit_pad"
+            android:paddingTop="@dimen/widget_hey_top"
+            android:paddingRight="@dimen/widget_hit_pad"
+            android:paddingBottom="@dimen/widget_hit_pad">
+
+            <ImageView
+                android:id="@+id/widget_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:importantForAccessibility="no"
+                android:src="@drawable/widget_sw_off_l" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFamily="@font/instrument_sans"
+                android:text="@string/home_listening_label"
+                android:textColor="@color/wl_graphite"
+                android:textSize="@dimen/widget_hey_text"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_toggle"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_marginStart="@dimen/widget_padding"
-        android:fontFamily="@font/instrument_sans"
-        android:gravity="center"
-        android:paddingHorizontal="@dimen/widget_padding"
-        android:text="@string/widget_hey_pip_off"
-        android:textColor="@color/ink"
-        android:textSize="@dimen/widget_option_text" />
+    <FrameLayout
+        android:id="@+id/widget_button"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginLeft="@dimen/widget_circle_inset"
+        android:layout_marginTop="@dimen/widget_circle_margin"
+        android:layout_marginRight="@dimen/widget_circle_inset"
+        android:layout_weight="1">
 
-    <TextView
-        android:id="@+id/widget_open"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:fontFamily="@font/instrument_sans"
-        android:gravity="center"
-        android:paddingHorizontal="@dimen/widget_padding"
-        android:text="@string/widget_open"
-        android:textColor="@color/ink"
-        android:textSize="@dimen/widget_option_text" />
+        <FrameLayout
+            android:id="@+id/widget_idle"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_circle"
+                android:tint="@color/wl_tint" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/widget_seed"
+                    android:layout_width="@dimen/widget_seed"
+                    android:layout_height="@dimen/widget_seed"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_seed_solid"
+                    android:tint="@color/wl_sprout" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/instrument_sans"
+                    android:gravity="center"
+                    android:text="@string/widget_catch_label"
+                    android:textColor="@color/wl_ink"
+                    android:textSize="@dimen/widget_label_text"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/widget_live"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_circle"
+                android:tint="@color/wl_live" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="@dimen/widget_stop"
+                    android:layout_height="@dimen/widget_stop"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_stop"
+                    android:tint="@color/wl_onlive" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/instrument_sans"
+                    android:gravity="center"
+                    android:paddingLeft="@dimen/widget_ellipsis_shift"
+                    android:text="@string/widget_listening"
+                    android:textColor="@color/wl_onlive"
+                    android:textSize="@dimen/widget_label_text"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>
 </LinearLayout>

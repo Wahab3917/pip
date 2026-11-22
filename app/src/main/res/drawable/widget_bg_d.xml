@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget card: a Card colour with a hairline border, no shadow. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/wd_card" />
+    <stroke android:width="1dp" android:color="@color/wd_hair" />
+    <corners android:radius="@dimen/widget_corner" />
+</shape>

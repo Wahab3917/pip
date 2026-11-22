@@ -18,6 +18,8 @@ class PipSettings(context: Context) {
         /** Wall-clock time (epoch ms) until which the user paused listening; 0 = not paused. */
         val pausedUntilMs: Long,
         val pauseInBatterySaver: Boolean,
+        /** Pip's own light/dark choice; light by default, whatever the phone is set to. */
+        val darkMode: Boolean = false,
     )
 
     private val prefs = context.getSharedPreferences("pip_settings", Context.MODE_PRIVATE)
@@ -27,6 +29,7 @@ class PipSettings(context: Context) {
     fun setListeningEnabled(enabled: Boolean) = save { putBoolean(KEY_LISTENING, enabled) }
     fun setSensitivity(value: Float) = save { putFloat(KEY_SENSITIVITY, value.coerceIn(0f, 1f)) }
     fun setPauseInBatterySaver(enabled: Boolean) = save { putBoolean(KEY_BATTERY_SAVER, enabled) }
+    fun setDarkMode(enabled: Boolean) = save { putBoolean(KEY_DARK_MODE, enabled) }
     fun pauseFor(durationMs: Long) =
         save { putLong(KEY_PAUSED_UNTIL, System.currentTimeMillis() + durationMs) }
     fun resume() = save { putLong(KEY_PAUSED_UNTIL, 0L) }
@@ -41,6 +44,7 @@ class PipSettings(context: Context) {
         sensitivity = prefs.getFloat(KEY_SENSITIVITY, WakeWordTuning.DEFAULT_SENSITIVITY),
         pausedUntilMs = prefs.getLong(KEY_PAUSED_UNTIL, 0L),
         pauseInBatterySaver = prefs.getBoolean(KEY_BATTERY_SAVER, false),
+        darkMode = prefs.getBoolean(KEY_DARK_MODE, false),
     )
 
     private companion object {
@@ -49,5 +53,6 @@ class PipSettings(context: Context) {
         const val KEY_SENSITIVITY = "sensitivity_v2"
         const val KEY_PAUSED_UNTIL = "paused_until_ms"
         const val KEY_BATTERY_SAVER = "pause_in_battery_saver"
+        const val KEY_DARK_MODE = "dark_mode"
     }
 }

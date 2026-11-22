@@ -51,6 +51,11 @@ class QuickActionActivity : ComponentActivity() {
                 ListeningService.catchNow(this)
                 ::isCapturing
             }
+            ACTION_FINISH -> {
+                // The widget's stop button while catching: end the note and save it.
+                ListeningService.finishCatch(this)
+                ::always
+            }
             ACTION_TOGGLE_LISTENING -> {
                 val enable = !graph.settings.values.value.listeningEnabled
                 graph.settings.setListeningEnabled(enable)
@@ -79,6 +84,7 @@ class QuickActionActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_CATCH = "one.mindly.pip.quick.CATCH"
+        const val ACTION_FINISH = "one.mindly.pip.quick.FINISH"
         const val ACTION_TOGGLE_LISTENING = "one.mindly.pip.quick.TOGGLE_LISTENING"
 
         /** Long enough for the service to start and open the mic on a slow phone. */

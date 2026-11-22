@@ -6,15 +6,31 @@
         values-night/colors.xml.
     -->
     <color name="paper">#FFF6F3EC</color>
-    <color name="card">#FFFBF9F4</color>
-    <color name="ink">#FF1D1C1A</color>
-    <color name="graphite">#FF6B6760</color>
-    <color name="hairline">#FFE4DFD5</color>
-    <color name="sprout">#FF3E8E5E</color>
-    <color name="on_sprout">#FFFBF9F4</color>
 
     <!-- App icon: the Paper seed with deep-green lines on a Sprout square, in both themes. -->
     <color name="logo_background">#FF3E8E5E</color>
     <color name="logo_seed">#FFF6F3EC</color>
     <color name="logo_seed_line">#FF2A6643</color>
+    <!-- Home-screen widget colours (RemoteViews can't read the Compose theme). wl_ = light, wd_ = dark;
+         the widget picks the set from Pip's own dark-mode setting. Same tokens as ui/theme/PipColors.kt. -->
+    <color name="wl_card">#FFFBF9F4</color>
+    <color name="wl_hair">#FFE4DFD5</color>
+    <color name="wl_ink">#FF1D1C1A</color>
+    <color name="wl_graphite">#FF6B6760</color>
+    <color name="wl_sprout">#FF3E8E5E</color>
+    <color name="wl_tint">#FFDDEBDF</color>
+    <color name="wl_track">#FFE4DFD5</color>
+    <color name="wl_live">#FF1D1C1A</color>
+    <color name="wl_onlive">#FFFBF9F4</color>
+    <color name="wl_on">#FFFBF9F4</color>
+    <color name="wd_card">#FF201F1C</color>
+    <color name="wd_hair">#FF2E2C28</color>
+    <color name="wd_ink">#FFEDE9E1</color>
+    <color name="wd_graphite">#FF9C978D</color>
+    <color name="wd_sprout">#FF6CC08A</color>
+    <color name="wd_tint">#FF243529</color>
+    <color name="wd_track">#FF3A3833</color>
+    <color name="wd_live">#FFEDE9E1</color>
+    <color name="wd_onlive">#FF161513</color>
+    <color name="wd_on">#FF161513</color>
 </resources>

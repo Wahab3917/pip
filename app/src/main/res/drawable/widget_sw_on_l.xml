@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Hey Pip" switch, drawn as a picture because a widget can't restyle a real Switch before Android 12. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="34dp" android:height="20dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/wl_sprout" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+    <item
+        android:width="14dp"
+        android:height="14dp"
+        android:gravity="center_vertical|right"
+        android:right="3dp">
+        <shape android:shape="oval">
+            <solid android:color="@color/wl_on" />
+        </shape>
+    </item>
+</layer-list>

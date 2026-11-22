@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick-settings tile icon: the seed's filled outline, at 80 %, smaller than the notification icon so it sits comfortably inside the tile's circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="560"
+    android:viewportHeight="560">
+    <group
+        android:pivotX="280"
+        android:pivotY="280"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+    <group
+            android:translateX="12"
+            android:translateY="44">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="@string/seed_solid_path" />
+        </group>
+    </group>
+</vector>

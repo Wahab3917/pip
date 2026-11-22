@@ -3,7 +3,9 @@
     <!--
         THE SEED: Pip's mark. "Sunflower Seed" by Amethyst Studio from the Noun Project, CC BY 3.0
         (https://thenounproject.com, credited in README.md). Credit text removed from the SVG; the
-        paths are otherwise unchanged. Viewport 504 x 504 (drawables add a 12-unit margin: 528).
+        paths are otherwise unchanged. Viewport 504 x 504. The drawables use a 560 viewport and offset the seed by (12, 44): a margin plus
+        an optical shift of 16 units toward the round end, so the round end and the pointed tip sit equally
+        far from the edge (the tip reaches its corner, the round end doesn't).
 
         seed_solid_path: the seed's outer outline, filled. Used alone where lines would vanish:
                          notification, tile, widget, the dot of the i, Android's themed icon.

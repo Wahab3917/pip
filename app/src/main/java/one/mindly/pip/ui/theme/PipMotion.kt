@@ -14,6 +14,12 @@ object PipMotion {
     const val SHORT_MS = 150
     const val MEDIUM_MS = 200
 
+    /** Light and dark crossfading into each other when dark mode is switched. */
+    const val THEME_MS = 350
+
+    /** The note sheet growing into the full-height editor (and back). */
+    const val SHEET_MS = 320
+
     /** How list rows slide when a new thought appears at the top. */
     val listItemPlacement: FiniteAnimationSpec<IntOffset> = tween(MEDIUM_MS)
 

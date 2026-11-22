@@ -78,6 +78,14 @@ class ListeningEngine(
         finishRequested = true
     }
 
+    /** Set by [requestCancel] (the overlay's ✕), checked once per chunk while capturing. */
+    @Volatile private var cancelRequested = false
+
+    /** Throw the current capture away: nothing is saved, the "missed" cue plays. */
+    fun requestCancel() {
+        cancelRequested = true
+    }
+
     /**
      * Start a capture now, without the wake word. Safe to call from any thread.
      * Ignored while a capture is already running: that one is already catching the thought.
@@ -220,6 +228,7 @@ class ListeningEngine(
     private suspend fun capture(mic: Microphone, preRoll: ShortArray) {
         catchRequested.value = false
         finishRequested = false
+        cancelRequested = false
         status.value = EngineStatus.Capturing
         cues.play(Cue.LISTENING)
         speech.reset()
@@ -234,6 +243,11 @@ class ListeningEngine(
                 val pcm = buffer.copyOf(read)
                 level.value = voiceLevel(pcm)
                 outcome = session.onChunk(pcm, speech.isSpeech(pcm.toFloatSamples()))
+                if (cancelRequested) {
+                    Log.i(PIP_LOG_TAG, "[Engine] catch cancelled by the user")
+                    outcome = CaptureSession.Outcome.Missed
+                    break
+                }
                 if (finishRequested && outcome == CaptureSession.Outcome.Continue) break
             }
         } finally {

@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.mindly.pip.MainActivity
 import one.mindly.pip.R
@@ -92,6 +93,7 @@ class ListeningService : Service() {
         when (intent?.action) {
             ACTION_CATCH -> engine.requestCatch()
             ACTION_FINISH -> engine.requestFinish()
+            ACTION_CANCEL -> engine.requestCancel()
         }
         // START_STICKY: if Android kills us for memory, it recreates the service later.
         return START_STICKY
@@ -115,9 +117,12 @@ class ListeningService : Service() {
                 Log.e(PIP_LOG_TAG, "[Service] mic permission revoked", e)
             }
             // run() returned: "Hey Pip" is off and no catch is pending, so there's nothing to do.
-            // stopSelfResult() only stops if no newer start request (e.g. another catch) arrived;
-            // if one did, the next onStartCommand starts a fresh engine.
+            // A new request from here on starts a fresh engine.
             this@ListeningService.engine = null
+            // The caught/missed cue has only just started; stopping now would release the sound
+            // player and cut it off. Let it play out first.
+            delay(CUE_TAIL_MS)
+            // stopSelfResult() only stops if no newer start request (e.g. another catch) arrived.
             stopSelfResult(lastStartId)
         }
         // Keep the notification text in sync with what the engine is doing.
@@ -193,6 +198,9 @@ class ListeningService : Service() {
         private const val ACTION_RESUME = "one.mindly.pip.RESUME"
         private const val ACTION_CATCH = "one.mindly.pip.CATCH"
         private const val ACTION_FINISH = "one.mindly.pip.FINISH"
+        private const val ACTION_CANCEL = "one.mindly.pip.CANCEL"
+        /** Longer than the longest cue (cue_caught is ~0.45 s). */
+        private const val CUE_TAIL_MS = 800L
         private const val ONE_HOUR_MS = 60 * 60 * 1000L
 
         fun start(context: Context) {
@@ -211,6 +219,11 @@ class ListeningService : Service() {
         /** "Tap to finish" in the capture overlay: end the note now and save what was said. */
         fun finishCatch(context: Context) {
             context.startService(Intent(context, ListeningService::class.java).setAction(ACTION_FINISH))
+        }
+
+        /** The capture overlay's ✕: throw the current note away. */
+        fun cancelCatch(context: Context) {
+            context.startService(Intent(context, ListeningService::class.java).setAction(ACTION_CANCEL))
         }
 
         fun stop(context: Context) {

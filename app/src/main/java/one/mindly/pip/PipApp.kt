@@ -1,11 +1,14 @@
 package one.mindly.pip
 
 import android.app.Application
+import android.app.UiModeManager
 import android.content.Context
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -29,10 +32,24 @@ class PipApp : Application() {
         graph = AppGraph(this)
         graph.processor.start() // Transcribe anything still waiting from before.
 
-        // Keep the widget's "Hey Pip: on/off" label in step with the setting, whoever changed it.
-        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
-            graph.settings.values.map { it.listeningEnabled }.distinctUntilChanged().collect {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        // Keep the widget in step with what it shows (Hey Pip on/off, dark mode, "catching"), whoever changed it.
+        scope.launch {
+            combine(
+                graph.settings.values.map { it.listeningEnabled to it.darkMode }.distinctUntilChanged(),
+                graph.engineStatus.map { it == EngineStatus.Capturing }.distinctUntilChanged(),
+            ) { settings, catching -> settings to catching }.collect {
                 PipWidget.updateAll(this@PipApp)
+            }
+        }
+        // Pip's dark-mode setting (light by default) also drives the window background and system
+        // bars, not just Compose: on Android 12+ tell the system which mode this app is in.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val uiMode = getSystemService(UiModeManager::class.java)
+            scope.launch {
+                graph.settings.values.map { it.darkMode }.distinctUntilChanged().collect { dark ->
+                    uiMode.setApplicationNightMode(if (dark) UiModeManager.MODE_NIGHT_YES else UiModeManager.MODE_NIGHT_NO)
+                }
             }
         }
     }

@@ -1,10 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Home-screen widget geometry (theme layer; the widget can't use Compose's PipShapes). -->
-    <dimen name="widget_padding">8dp</dimen>
-    <dimen name="widget_corner">16dp</dimen>
-    <dimen name="widget_button_corner">12dp</dimen>
-    <dimen name="widget_seed">18dp</dimen>
-    <dimen name="widget_catch_text">16sp</dimen>
-    <dimen name="widget_option_text">13sp</dimen>
+    <!-- Home-screen widget geometry (theme layer; the widget can't use Compose's PipShapes).
+         The round button is whatever space is left under the top row, so only what sits INSIDE it
+         has a fixed size; those sizes are chosen so they fit even a 110dp circle. -->
+    <dimen name="widget_padding">14dp</dimen>
+    <dimen name="widget_corner">24dp</dimen>
+    <dimen name="widget_circle_margin">6dp</dimen>
+    <!-- Extra space left and right of the round button; makes it a little smaller than the card is wide. -->
+    <dimen name="widget_circle_inset">8dp</dimen>
+    <!-- "Listening…" ends in three nearly invisible dots, so its box is wider than the word. Shifting the
+         label right by this much (padding is twice the shift) centres the WORD under the stop square. -->
+    <dimen name="widget_ellipsis_shift">12dp</dimen>
+    <!-- Space above the switch so its top edge is level with the top of the "P". The text box has this much
+         empty room above the capital letters (ascent minus cap height at 22sp); measured on the user's phone. -->
+    <dimen name="widget_hey_top">4.6dp</dimen>
+    <!-- How far "Pip" sits below the switch's top edge so the capital letters are centred against the 20dp
+         switch track: (20dp track - 15.6dp cap height at 22sp) / 2. The user asked for this over a flat top edge. -->
+    <dimen name="widget_wordmark_drop">2.2dp</dimen>
+    <dimen name="widget_seed">40dp</dimen>
+    <dimen name="widget_stop">28dp</dimen>
+    <dimen name="widget_chevron">20dp</dimen>
+    <dimen name="widget_hit_pad">4dp</dimen>
+    <dimen name="widget_wordmark_text">22sp</dimen>
+    <dimen name="widget_label_text">14sp</dimen>
+    <dimen name="widget_hey_text">11sp</dimen>
 </resources>

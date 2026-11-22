@@ -15,6 +15,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,16 +41,17 @@ import one.mindly.pip.R
 import one.mindly.pip.ui.components.Seed
 import one.mindly.pip.ui.theme.PipMotion
 import one.mindly.pip.ui.theme.PipSpacing
-import one.mindly.pip.ui.theme.PipType
 
 /**
  * Shown over everything while Pip is catching a thought and the app is open, whatever started
  * it (seed button, tile, widget or "Hey Pip"). "Pip — Design Guidelines" → Capture overlay:
- * Paper background, the seed breathing with your voice, "Listening…", a thin live waveform,
- * and "Tap to finish" (anywhere on the screen, or back) to end the note early and keep it.
+ * Paper background, the seed breathing with your voice, "Listening…" and a thin live waveform.
+ *
+ * ✕ and ✓ sit together at the bottom, in reach of the thumb. ✓ (or a tap anywhere, or back) ends
+ * the note now and keeps it; ✕ throws it away.
  */
 @Composable
-fun CaptureOverlay(level: Float, onFinish: () -> Unit) {
+fun CaptureOverlay(level: Float, onFinish: () -> Unit, onCancel: () -> Unit) {
     BackHandler(onBack = onFinish)
     val colors = MaterialTheme.colorScheme
     val breath by animateFloatAsState(1f + level * PipMotion.seedBreath, tween(PipMotion.SHORT_MS), label = "breath")
@@ -55,7 +63,7 @@ fun CaptureOverlay(level: Float, onFinish: () -> Unit) {
         history.add(level)
     }
 
-    val finish = stringResource(R.string.capture_tap_to_finish)
+    val finish = stringResource(R.string.capture_done)
     Box(
         Modifier
             .fillMaxSize()
@@ -80,12 +88,25 @@ fun CaptureOverlay(level: Float, onFinish: () -> Unit) {
                 }
             }
         }
-        Text(
-            finish,
-            style = PipType.meta,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = PipSpacing.xl),
-        )
+        Row(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = PipSpacing.l)
+                .padding(bottom = PipSpacing.xl),
+            horizontalArrangement = Arrangement.spacedBy(PipSpacing.overlayButtonGap),
+        ) {
+            OutlinedIconButton(
+                onClick = onCancel,
+                border = BorderStroke(PipSpacing.hairline, colors.outline),
+                modifier = Modifier.size(PipSpacing.overlayButton),
+            ) {
+                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.capture_cancel), modifier = Modifier.size(PipSpacing.overlayIcon))
+            }
+            FilledIconButton(onClick = onFinish, modifier = Modifier.size(PipSpacing.overlayButton)) {
+                Icon(painterResource(R.drawable.ic_check), finish, modifier = Modifier.size(PipSpacing.overlayIcon))
+            }
+        }
     }
 }
 

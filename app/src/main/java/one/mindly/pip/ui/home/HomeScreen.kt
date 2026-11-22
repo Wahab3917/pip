@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -25,12 +26,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +66,7 @@ import one.mindly.pip.core.capture.EngineStatus
 import one.mindly.pip.core.settings.PipSettings
 import one.mindly.pip.core.storage.Thought
 import one.mindly.pip.core.storage.ThoughtStatus
+import one.mindly.pip.ui.components.ConfirmDialog
 import one.mindly.pip.ui.components.Seed
 import one.mindly.pip.ui.components.Wordmark
 import one.mindly.pip.ui.theme.PipMotion
@@ -144,7 +146,7 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Wordmark() },
                     actions = {
-                        StatusPill(state.settings.listeningEnabled, state.engineStatus, onToggleListening)
+                        HeyPipToggle(state.settings.listeningEnabled, state.engineStatus, onToggleListening)
                         IconButton(onClick = onOpenSettings) {
                             Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_open))
                         }
@@ -208,51 +210,68 @@ fun HomeScreen(
     }
 
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(pluralStringResource(R.plurals.home_delete_title, selected.size, selected.size)) },
-            text = { Text(stringResource(R.string.home_delete_text)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteThoughts(selected)
-                    selectedIds = emptySet()
-                    confirmDelete = false
-                }) { Text(stringResource(R.string.note_delete)) }
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.home_delete_title, selected.size, selected.size),
+            text = stringResource(R.string.home_delete_text),
+            confirm = stringResource(R.string.note_delete),
+            dismiss = stringResource(R.string.note_cancel),
+            onConfirm = {
+                onDeleteThoughts(selected)
+                selectedIds = emptySet()
+                confirmDelete = false
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.note_cancel)) } },
+            onDismiss = { confirmDelete = false },
         )
     }
 }
 
-/** Sprout dot + "listening", or Graphite + "paused" / "off". Tapping it turns "Hey Pip" on or off. */
+/**
+ * "Hey Pip" with a small switch: reads as a setting you can flip, not just a status. Tapping
+ * anywhere on it turns "Hey Pip" on or off. While on but paused (a call, battery saver…), it says so.
+ */
 @Composable
-private fun StatusPill(enabled: Boolean, status: EngineStatus, onClick: () -> Unit) {
-    val listening = enabled && status != EngineStatus.Off && status !is EngineStatus.Paused && status != EngineStatus.MicUnavailable
-    val word = when {
-        !enabled -> R.string.pill_off
-        listening -> R.string.pill_listening
-        else -> R.string.pill_paused
-    }
+private fun HeyPipToggle(enabled: Boolean, status: EngineStatus, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val paused = enabled && (status is EngineStatus.Paused || status == EngineStatus.MicUnavailable)
+    val label = stringResource(R.string.home_listening_label) + if (paused) " · " + stringResource(R.string.pill_paused) else ""
     val action = stringResource(if (enabled) R.string.pill_turn_off else R.string.pill_turn_on)
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(PipSpacing.hairline, MaterialTheme.colorScheme.outlineVariant),
+        color = colors.surface,
+        border = BorderStroke(PipSpacing.hairline, colors.outlineVariant),
         modifier = Modifier.semantics { contentDescription = action },
     ) {
         Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Box(
-                Modifier.size(8.dp).clip(CircleShape).background(
-                    if (listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-            Text(stringResource(word), style = PipType.meta, color = MaterialTheme.colorScheme.onSurface)
+            Text(label, style = PipType.meta, color = colors.onSurface)
+            MiniSwitch(checked = enabled)
         }
+    }
+}
+
+/** A small, display-only switch (the pill around it takes the tap). */
+@Composable
+private fun MiniSwitch(checked: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val thumb by animateDpAsState(if (checked) PipSpacing.miniSwitchTravel else 0.dp, tween(PipMotion.MEDIUM_MS), label = "thumb")
+    Box(
+        Modifier
+            .size(PipSpacing.miniSwitchWidth, PipSpacing.miniSwitchHeight)
+            .clip(CircleShape)
+            .background(if (checked) colors.primary else colors.outlineVariant)
+            .padding(PipSpacing.miniSwitchPad),
+    ) {
+        Box(
+            Modifier
+                .offset(x = thumb)
+                .size(PipSpacing.miniSwitchHeight - PipSpacing.miniSwitchPad * 2)
+                .clip(CircleShape)
+                .background(if (checked) colors.onPrimary else colors.surface)
+        )
     }
 }
 

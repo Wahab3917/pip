@@ -48,8 +48,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     /** The seed button. Call only once RECORD_AUDIO is granted; we're in the foreground, so the mic is allowed. */
     fun catchNow() = ListeningService.catchNow(getApplication())
 
-    /** "Tap to finish" in the capture overlay. */
+    /** "Done" (or tap / back) in the capture overlay: end the note and save it. */
     fun finishCatch() = ListeningService.finishCatch(getApplication())
+
+    /** ✕ in the capture overlay: throw the note away. */
+    fun cancelCatch() = ListeningService.cancelCatch(getApplication())
 
     /** Call only once RECORD_AUDIO is granted (MainActivity takes care of that). */
     fun setListening(enabled: Boolean) {
@@ -61,6 +64,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun setSensitivity(value: Float) = graph.settings.setSensitivity(value)
 
     fun setPauseInBatterySaver(enabled: Boolean) = graph.settings.setPauseInBatterySaver(enabled)
+
+    fun setDarkMode(enabled: Boolean) = graph.settings.setDarkMode(enabled)
 
     fun thought(id: UUID): Flow<Thought?> = graph.repository.observe(id)
 

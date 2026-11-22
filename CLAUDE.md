@@ -39,8 +39,9 @@ Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
   `ic_stat_pip` notification + tile, widget, wordmark dot, `ic_launcher_monochrome` themed icon);
   `seed_lines_path` = line art (`ic_seed_lines`, thickened with a 10-unit stroke). Full seed = paper fill + deep
   green lines (`PipColors.seedLight/seedDark` via `LocalSeedColors`; app icon colours in `colors.xml`).
-- `res/raw/cue_*.wav`: kalimba plucks from `tools/generate_cues.py` (A5→E6 listening, E6→A5 caught, low muted
-  tick missed; peaks -9 dBFS). Haptics in `core/feedback/CuePlayer.kt` (short tap / two soft taps / dull tap).
+- `res/raw/cue_*.wav`: from `tools/generate_cues.py`: kalimba plucks A5→E6 (listening) and E6→A5 (caught), peaks -9 dBFS,
+  and "soft sigh" for missed (one note gliding 700→430 Hz, 260 ms, peak -8 dBFS; user's choice 2026-11-22 after the
+  first low E4 tick proved too quiet on a phone speaker at low ring volume). Haptics in `core/feedback/CuePlayer.kt` (short tap / two soft taps / dull tap).
 - `res/values/strings.xml`: all copy, in the guidelines' voice (caught, pocket, "Writing it down…")
 - `res/values(-night)/colors.xml`, `dimens.xml`, `layout/widget_pip.xml`, `drawable/widget_*`: the widget and app
   icon colors (RemoteViews can't use Compose); `res/values/themes.xml`: Paper window background (DayNight)
@@ -48,9 +49,33 @@ Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
 
 ### Design pass decisions (user, 2026-11-22)
 Applied the user's guidelines with: kalimba cues; capture overlay KEPT (shown over the app whenever Pip is
-catching, any trigger; tap anywhere / back = finish now, keeps the speech); note = bottom sheet (text first, then
-player), Edit opens a FULL-SCREEN editor; Hey Pip switch, sensitivity and battery saver on a separate Settings page
-(gear in the top bar); the status pill turns Hey Pip on/off. Not built (out of scope): categories + dots, filter chips,
+catching, any trigger): round ✕ and ✓ icon buttons side by side at the bottom (thumb reach); ✓ / tap anywhere /
+back = finish now and save; ✕ = discard (engine `requestCancel`, missed cue); note = bottom sheet (text first, then player), Edit grows the SAME sheet smoothly to
+full height as the editor (animateContentSize; swipe-to-dismiss and back-dismiss off while editing, back cancels the
+edit); Settings page: Dark mode (app-own setting, LIGHT by default regardless of the phone; drives Compose,
+system-bar icons and, on Android 12+, `UiModeManager.setApplicationNightMode`; MainActivity declares
+configChanges="uiMode" so it isn't recreated, and PipTheme crossfades every colour over 350 ms), Pause in battery saver (only pauses
+"Hey Pip"), then Hey Pip switch + sensitivity. Top bar: plain "Pip" wordmark, capital P, no seed dot + a "Hey Pip" pill with a
+small switch inside (toggles listening). Dialogs use `ConfirmDialog` (usePlatformDefaultWidth=false: Samsung's
+default dialog is edge to edge). Tile uses `ic_tile_pip` (seed at 80 %). Tile and widget are available from install
+(user adds them; Android has no app-side on/off for them). Widget = "calm card" (final layout 2026-11-22, after three rounds with the user): top row "Pip ›" (opens the app) on
+the left and the "Hey Pip" switch with its label UNDER it on the right (tap = toggle listening); everything below is one
+big round button (an ImageView of a vector circle, scaleType fitCenter, so it is always the biggest circle that fits)
+holding the seed and "Catch a\nthought" (two lines so it always fits). While catching: a stop square and "Listening…"
+(no red dot, no hint text); tapping finishes + saves (QuickActionActivity ACTION_FINISH → ListeningService.finishCatch).
+Two layouts (widget_pip / widget_pip_dark, colours wl_* / wd_*) chosen from Pip's dark-mode setting; the switch is a
+drawable (widget_sw_on/off_l/d); PipWidget.build() renders a state; PipApp refreshes the widget when Hey Pip, dark mode
+or the Capturing state changes. Picker text: "Catch a thought, turn on the wake word trigger."; `previewLayout` shows the
+real widget in the picker (Android 12+). The user's 2x2 on One UI is a TALL rectangle (~180 x 260 dp on the 1080x2400,
+420 dpi phone), not a square. `WidgetRenderTest` (androidTest) renders the real RemoteViews at 150x215…190x275 dp, light/dark,
+idle/catching, saves PNGs to files/widget-render/ and asserts text stays ≥ 4 dp inside the circle (sizes ≥ 170x245). Known limitation: boxes smaller than the real one
+(150x215, or a launcher with square 2x2 cells ~180x180 → circle ~99 dp) crowd the label; rendered but not asserted.
+Round button = circle inset 8 dp each side (≈135 dp on the user's phone); seed 40 dp, label 14 sp. Details the user
+asked for: "Pip" centred against the 20 dp switch track, i.e. 2.2 dp (`widget_wordmark_drop`) below the switch's top edge
+(measured on the phone; the user first had them top-aligned, then asked for "a few pixels" lower; always done with
+padding, NOT a negative margin, which clipped the letters; `widget_hey_top` 4.6 dp is the switch's top padding), and "Listening…" shifted right by `widget_ellipsis_shift` so the WORD,
+not the box with its trailing dots, is centred under the stop square (the square itself was centred to the pixel). Missed cue (E4 330 Hz tick)
+was too quiet on a phone speaker at low ring volume: replaced by the soft sigh (see sounds above). Not built (out of scope): categories + dots, filter chips,
 reminders, Plant / Let go swipes, evening nudge, "Pip caught that" toast, onboarding. Logo: the user rejected the
 first generated seed, a Flaticon icon (licence forbids logo use) and four drawn marks; chose the Noun Project
 "Sunflower Seed" (CC BY 3.0, attribution in README), filled paper with deep-green lines (option 1).
@@ -251,3 +276,5 @@ Later and separate: design pass (theme layer only), connectors.
   *during* the note loses that note.
 - Samsung may kill background apps unless Pip's battery setting is "Unrestricted" (Phase 4 onboarding).
 - A native crash (ONNX Runtime / sherpa) can't be caught in Kotlin; START_STICKY makes Android restart the service.
+- When "Hey Pip" is off, the service stops after a catch; it waits `CUE_TAIL_MS` (800 ms) first, because releasing
+  the SoundPool in onDestroy cut off the caught/missed cue (the "no missed sound" bug, 2026-11-22).

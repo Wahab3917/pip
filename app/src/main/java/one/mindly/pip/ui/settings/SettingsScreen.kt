@@ -1,7 +1,6 @@
 package one.mindly.pip.ui.settings
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,24 +24,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import one.mindly.pip.R
 import one.mindly.pip.core.capture.EngineStatus
 import one.mindly.pip.core.settings.PipSettings
 import one.mindly.pip.core.wakeword.WakeWordTuning
-import one.mindly.pip.ui.components.Seed
 import one.mindly.pip.ui.statusText
 import one.mindly.pip.ui.theme.PipSpacing
 import one.mindly.pip.ui.theme.PipType
 
 /**
- * Settings: a plain grouped list, no icons beside rows except the seed for the Listening group
- * ("Pip — Design Guidelines" → Settings). Holds what used to be on the home screen's Hey Pip card.
+ * Settings: a plain grouped list ("Pip — Design Guidelines" → Settings). App-wide options first
+ * (dark mode, battery saver), then everything about "Hey Pip".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +49,7 @@ fun SettingsScreen(
     onListeningChange: (Boolean) -> Unit,
     onSensitivityChange: (Float) -> Unit,
     onPauseInBatterySaverChange: (Boolean) -> Unit,
+    onDarkModeChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -68,20 +65,22 @@ fun SettingsScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
-            Row(
-                Modifier.padding(horizontal = PipSpacing.m, vertical = PipSpacing.s),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(PipSpacing.s),
-            ) {
-                Seed(size = 16.dp, solid = true)
-                Text(stringResource(R.string.settings_group_listening), style = PipType.dayLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            ListItem(
+                colors = rowColors,
+                headlineContent = { Text(stringResource(R.string.settings_dark_mode)) },
+                trailingContent = { Switch(checked = settings.darkMode, onCheckedChange = onDarkModeChange) },
+            )
+            ListItem(
+                colors = rowColors,
+                headlineContent = { Text(stringResource(R.string.home_battery_saver_label)) },
+                supportingContent = { Text(stringResource(R.string.settings_battery_saver_detail)) },
+                trailingContent = { Switch(checked = settings.pauseInBatterySaver, onCheckedChange = onPauseInBatterySaverChange) },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = PipSpacing.s))
             ListItem(
                 colors = rowColors,
                 headlineContent = { Text(stringResource(R.string.home_listening_label)) },
-                supportingContent = {
-                    Text(stringResource(engineStatus.statusText()))
-                },
+                supportingContent = { Text(stringResource(engineStatus.statusText())) },
                 trailingContent = { Switch(checked = settings.listeningEnabled, onCheckedChange = onListeningChange) },
             )
             if (showNotificationHint) {
@@ -93,12 +92,6 @@ fun SettingsScreen(
                 )
             }
             SensitivitySlider(settings.sensitivity, onSensitivityChange)
-            ListItem(
-                colors = rowColors,
-                headlineContent = { Text(stringResource(R.string.home_battery_saver_label)) },
-                trailingContent = { Switch(checked = settings.pauseInBatterySaver, onCheckedChange = onPauseInBatterySaverChange) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

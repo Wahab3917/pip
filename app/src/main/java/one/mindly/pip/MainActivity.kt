@@ -25,13 +25,15 @@ import one.mindly.pip.service.ListeningService
 import one.mindly.pip.ui.home.HomeScreen
 import one.mindly.pip.ui.home.HomeViewModel
 import one.mindly.pip.ui.home.PermissionState
-import one.mindly.pip.ui.note.EditScreen
 import one.mindly.pip.ui.note.NoteSheet
 import one.mindly.pip.ui.settings.SettingsScreen
 import one.mindly.pip.ui.capture.CaptureOverlay
 import one.mindly.pip.ui.theme.PipMotion
 import one.mindly.pip.core.capture.EngineStatus
+import android.graphics.Color
+import androidx.activity.SystemBarStyle
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,10 +46,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            PipTheme {
-                val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val dark = state.settings.darkMode
+            // Status/navigation bar icons follow Pip's own light/dark setting, not the phone's.
+            LaunchedEffect(dark) {
+                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            PipTheme(darkTheme = dark) {
                 var permissions by remember { mutableStateOf(readPermissions(justAsked = false)) }
                 // What to do once the user grants the mic: turn on "Hey Pip", or catch a thought.
                 var afterGrant by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -75,13 +82,11 @@ class MainActivity : ComponentActivity() {
                     onPauseOrDispose {}
                 }
 
-                // Few screens, so no navigation library. Where we are: Settings, the editor for a
-                // thought, or the Pocket with (maybe) one thought open in the bottom sheet.
+                // Few screens, so no navigation library: Settings, or the Pocket with (maybe) one thought
+                // open in the bottom sheet (which also does the editing).
                 var showSettings by rememberSaveable { mutableStateOf(false) }
-                var editingId by rememberSaveable { mutableStateOf<String?>(null) }
                 var openId by rememberSaveable { mutableStateOf<String?>(null) }
 
-                val editing = editingId?.let { viewModel.thought(UUID.fromString(it)).collectAsStateWithLifecycle(null).value }
                 val open = openId?.let { viewModel.thought(UUID.fromString(it)).collectAsStateWithLifecycle(null).value }
                 val closeSheet = {
                     viewModel.stopPlayback()
@@ -96,15 +101,8 @@ class MainActivity : ComponentActivity() {
                         onListeningChange = setListening,
                         onSensitivityChange = viewModel::setSensitivity,
                         onPauseInBatterySaverChange = viewModel::setPauseInBatterySaver,
+                        onDarkModeChange = viewModel::setDarkMode,
                         onBack = { showSettings = false },
-                    )
-                    editing != null -> EditScreen(
-                        initialText = editing.transcript.orEmpty(),
-                        onSave = {
-                            viewModel.editTranscript(editing.id, it)
-                            editingId = null
-                        },
-                        onCancel = { editingId = null },
                     )
                     else -> {
                         HomeScreen(
@@ -128,10 +126,8 @@ class MainActivity : ComponentActivity() {
                                 onTogglePlay = { viewModel.togglePlayback(open) },
                                 onSeek = { viewModel.seek(open, it) },
                                 onRetry = { viewModel.retryTranscription(open.id) },
-                                onEdit = {
-                                    viewModel.stopPlayback()
-                                    editingId = open.id.toString()
-                                },
+                                onStartEdit = viewModel::stopPlayback,
+                                onSaveText = { viewModel.editTranscript(open.id, it) },
                                 onDelete = {
                                     viewModel.delete(open)
                                     closeSheet()
@@ -150,7 +146,7 @@ class MainActivity : ComponentActivity() {
                     exit = fadeOut(tween(PipMotion.MEDIUM_MS)) + scaleOut(tween(PipMotion.MEDIUM_MS), targetScale = 0.85f),
                 ) {
                     val level by viewModel.captureLevel.collectAsStateWithLifecycle()
-                    CaptureOverlay(level = level, onFinish = viewModel::finishCatch)
+                    CaptureOverlay(level = level, onFinish = viewModel::finishCatch, onCancel = viewModel::cancelCatch)
                 }
             }
         }

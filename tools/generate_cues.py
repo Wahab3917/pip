@@ -6,9 +6,12 @@ wooden pluck like a kalimba, so they sound like one family:
 
   cue_listening  "Go ahead"           two rising notes a fifth apart (A5 → E6), ~180 ms
   cue_caught     "Got it"             the same two notes falling and settling (E6 → A5), ~250 ms + ring
-  cue_missed     "Didn't catch that"  one low, muted tick, ~100 ms
+  cue_missed     "Didn't catch that"  "soft sigh": one note gliding down (700 -> 430 Hz), ~260 ms
+                                      (chosen over the first low muted tick, which was too quiet on a
+                                      phone speaker at low ring volume)
 
-No cue is louder than a normal notification: peaks are kept at -9 dBFS.
+No cue is louder than a normal notification: peaks are kept at -9 dBFS (the sigh at -8, it is the
+gentlest and easily lost).
 
 Usage (from the project root):  python3 tools/generate_cues.py
 Uses only the Python standard library.
@@ -19,10 +22,9 @@ import wave
 from pathlib import Path
 
 SAMPLE_RATE = 44100
-PEAK = 10 ** (-9 / 20)  # -9 dBFS
 OUT_DIR = Path(__file__).resolve().parent.parent / "app/src/main/res/raw"
 
-A5, E6, E4 = 880.0, 1318.51, 329.63
+A5, E6 = 880.0, 1318.51
 
 
 def pluck(freq: float, ms: float, decay_ms: float, partials=((1.0, 1.0, 1.0), (2.0, 0.06, 0.6), (5.93, 0.10, 0.25))):
@@ -44,13 +46,25 @@ def pluck(freq: float, ms: float, decay_ms: float, partials=((1.0, 1.0, 1.0), (2
     return out
 
 
-def low_pass(samples, cutoff_hz: float):
-    """One-pole low-pass: softens the tick so it sounds muted, not clicky."""
-    a = math.exp(-2 * math.pi * cutoff_hz / SAMPLE_RATE)
-    y, out = 0.0, []
-    for x in samples:
-        y = (1 - a) * x + a * y
-        out.append(y)
+def sigh(f_start: float, f_end: float, ms: float, glide_ms: float, partials):
+    """One note that slides from f_start down to f_end over glide_ms, then fades out over ms.
+
+    The pitch glides exponentially (equal steps in musical interval), like a voice sighing. Every
+    partial follows the same glide; the loudness falls off exponentially to -80 dB by the end.
+    """
+    n = int(SAMPLE_RATE * ms / 1000)
+    attack = int(SAMPLE_RATE * 0.002)
+    phases = [0.0] * len(partials)
+    out = []
+    for i in range(n):
+        t = i / SAMPLE_RATE
+        freq = f_start * (f_end / f_start) ** min(1.0, t / (glide_ms / 1000))
+        env = 0.0001 ** (t / (ms / 1000)) * min(1.0, i / attack)
+        s = 0.0
+        for k, (ratio, level) in enumerate(partials):
+            phases[k] += 2 * math.pi * freq * ratio / SAMPLE_RATE
+            s += level * math.sin(phases[k])
+        out.append(s * env)
     return out
 
 
@@ -65,12 +79,13 @@ def mix(*voices):
     return out
 
 
-def finish(samples):
-    """Normalise to PEAK and fade the last 10 ms so nothing clicks."""
+def finish(samples, peak_db: float = -9.0):
+    """Normalise to peak_db (dBFS) and fade the last 10 ms so nothing clicks."""
+    peak = 10 ** (peak_db / 20)
     top = max(abs(s) for s in samples) or 1.0
     fade = int(SAMPLE_RATE * 0.010)
     n = len(samples)
-    return [s / top * PEAK * min(1.0, (n - 1 - i) / fade) for i, s in enumerate(samples)]
+    return [s / top * peak * min(1.0, (n - 1 - i) / fade) for i, s in enumerate(samples)]
 
 
 def write(name: str, samples) -> None:
@@ -89,5 +104,5 @@ if __name__ == "__main__":
     write("cue_listening", finish(mix((0, pluck(A5, 120, 60)), (75, pluck(E6, 150, 70)))))
     # "Got it": E6 then A5, the second note settles and rings a little longer.
     write("cue_caught", finish(mix((0, pluck(E6, 140, 70)), (100, pluck(A5, 330, 130)))))
-    # "Didn't catch that": one low, muted tick.
-    write("cue_missed", finish(low_pass(pluck(E4, 100, 35, partials=((1.0, 1.0, 1.0), (2.0, 0.15, 0.5))), 900)))
+    # "Didn't catch that": a soft sigh, one note gliding down from 700 to 430 Hz.
+    write("cue_missed", finish(sigh(700, 430, 260, 200, partials=((1.0, 1.0), (2.0, 0.06), (3.0, 0.03))), peak_db=-8))

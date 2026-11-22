@@ -36,6 +36,16 @@ object PipSpacing {
     /** The capture overlay's breathing seed and live waveform. */
     val overlaySeed = 112.dp
     val overlayWave = 40.dp
+    /** The capture overlay's ✕ and ✓ buttons. */
+    val overlayButton = 64.dp
+    val overlayIcon = 28.dp
+    val overlayButtonGap = 40.dp
+
+    /** The small switch inside the "Hey Pip" pill. */
+    val miniSwitchWidth = 30.dp
+    val miniSwitchHeight = 18.dp
+    val miniSwitchPad = 2.dp
+    val miniSwitchTravel = 12.dp // width - height
 
     /** Room at the bottom of the list so the last card can scroll above the seed button. */
     val listBottomForSeed = 104.dp

@@ -33,9 +33,7 @@
 
     <!-- Pocket (home) -->
     <string name="pocket_title">Pocket</string>
-    <string name="pill_listening">listening</string>
     <string name="pill_paused">paused</string>
-    <string name="pill_off">off</string>
     <string name="pill_turn_on">Turn on \"Hey Pip\"</string>
     <string name="pill_turn_off">Turn off \"Hey Pip\"</string>
     <string name="settings_open">Settings</string>
@@ -51,7 +49,8 @@
 
     <!-- Capture overlay (shown while Pip catches a thought and the app is open) -->
     <string name="capture_listening">Listening…</string>
-    <string name="capture_tap_to_finish">Tap to finish</string>
+    <string name="capture_done">Done</string>
+    <string name="capture_cancel">Cancel</string>
 
     <!-- Selecting several thoughts in the list (long-press one to start) -->
     <plurals name="home_selected">
@@ -85,7 +84,8 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_group_listening">Listening</string>
+    <string name="settings_dark_mode">Dark mode</string>
+    <string name="settings_battery_saver_detail">Pauses \"Hey Pip\" listening while battery saver is on. The tile, widget and seed button still work.</string>
     <string name="home_listening_label">Hey Pip</string>
     <string name="home_sensitivity_label">Sensitivity</string>
     <string name="home_sensitivity_strict">Fewer false wakes</string>
@@ -96,11 +96,14 @@
     <!-- Quick-settings tile and home-screen widget -->
     <string name="tile_label">Pip</string>
     <string name="widget_label">Pip</string>
-    <string name="widget_description">Catch a thought, turn \"Hey Pip\" on and off, or open Pip.</string>
-    <string name="widget_catch">Catch</string>
-    <string name="widget_hey_pip_on">Hey Pip: on</string>
-    <string name="widget_hey_pip_off">Hey Pip: off</string>
-    <string name="widget_open">Open</string>
+    <string name="widget_description">Catch a thought, turn on the wake word trigger.</string>
+    <string name="widget_catch_label">Catch a\nthought</string>
+    <string name="widget_listening">Listening…</string>
+    <string name="widget_desc_catch">Catch a thought</string>
+    <string name="widget_desc_finish">Finish and save</string>
+    <string name="widget_desc_open">Open Pip</string>
+    <string name="widget_desc_switch_on">Hey Pip is on. Tap to turn it off.</string>
+    <string name="widget_desc_switch_off">Hey Pip is off. Tap to turn it on.</string>
 
     <!-- Permissions -->
     <string name="perm_mic_needed">Pip needs the microphone to catch your thoughts. Audio never leaves this phone.</string>
