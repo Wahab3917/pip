@@ -107,7 +107,9 @@ One job at a time = one copy of the model in memory. Threads: min(cores, 4).
 Edit (pencil) is offered only when the status is READY or FAILED, so the job can't overwrite the user's words;
 saving sets the text and status READY (`editTranscript`, trimmed). Back while editing cancels the edit.
 Delete (bin, with a confirm dialog) is a real delete: Room row first (leaves the list at once), then the WAV.
-`state = LET_GO` is not used for this. `NoteEditingTest` (androidTest) covers both on the real database.
+`state = LET_GO` is not used for this. Bulk delete: long-press a row in the list to start selecting (checkboxes,
+"N selected", Select all, bin with confirm; back/✕ stops) → `deleteAll`. `NoteEditingTest` (androidTest) covers
+edit, delete and bulk delete on the real database.
 
 ## Models (in `app/src/main/assets`: ~4 MB in git + the ~160 MB speech model, fetched)
 | File | Size | What |

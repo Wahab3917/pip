@@ -59,6 +59,9 @@ class ThoughtRepository(
         Log.i(PIP_LOG_TAG, "[Storage] deleted thought ${thought.id}")
     }
 
+    /** Bulk delete from the list's selection mode; same rules as [delete], one thought at a time. */
+    suspend fun deleteAll(thoughts: Collection<Thought>) = thoughts.forEach { delete(it) }
+
     /** "Try again" for a failed transcript: put it back in the queue. */
     suspend fun retryTranscription(id: UUID) {
         dao.setStatus(id, ThoughtStatus.CAUGHT)

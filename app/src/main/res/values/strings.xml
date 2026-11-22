@@ -41,6 +41,19 @@
     <string name="thought_failed">Couldn\'t transcribe. The recording is safe.</string>
     <string name="thought_no_words">No words heard. The recording is safe.</string>
 
+    <!-- Selecting several thoughts in the list (long-press one to start) -->
+    <plurals name="home_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <string name="home_select_all">Select all</string>
+    <string name="home_selection_close">Stop selecting</string>
+    <plurals name="home_delete_title">
+        <item quantity="one">Delete %d thought?</item>
+        <item quantity="other">Delete %d thoughts?</item>
+    </plurals>
+    <string name="home_delete_text">Their text and recordings are removed from this phone. This can\'t be undone.</string>
+
     <!-- Note screen -->
     <string name="note_back">Back</string>
     <string name="note_play">Play</string>

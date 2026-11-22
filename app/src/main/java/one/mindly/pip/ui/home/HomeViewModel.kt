@@ -68,6 +68,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { graph.repository.delete(thought) }
     }
 
+    fun deleteAll(thoughts: Collection<Thought>) {
+        if (thoughts.any { it.id == player.state.value.id }) player.stop()
+        viewModelScope.launch { graph.repository.deleteAll(thoughts) }
+    }
+
     fun togglePlayback(thought: Thought) =
         player.toggle(thought.id, graph.repository.audioFile(thought))
 

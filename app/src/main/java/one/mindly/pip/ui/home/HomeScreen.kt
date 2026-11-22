@@ -1,7 +1,8 @@
 package one.mindly.pip.ui.home
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,25 +11,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,9 +64,10 @@ data class PermissionState(
 
 /**
  * Home screen: the "Hey Pip" switch and its sensitivity, and the list of caught thoughts.
- * Tapping a thought opens it (NoteScreen).
- * Stateless: it only draws [state] and reports taps through callbacks, which makes it easy
- * to preview and, later, to restyle.
+ * Tapping a thought opens it (NoteScreen). Long-pressing one starts selecting, for deleting
+ * several at once; back (or ✕) stops selecting.
+ * Stateless apart from the selection, which only matters on this screen: it draws [state]
+ * and reports taps through callbacks, which makes it easy to preview and, later, to restyle.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,10 +78,48 @@ fun HomeScreen(
     onSensitivityChange: (Float) -> Unit,
     onPauseInBatterySaverChange: (Boolean) -> Unit,
     onThoughtClick: (Thought) -> Unit,
+    onDeleteThoughts: (List<Thought>) -> Unit,
     onRequestMic: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { padding ->
+    // Ids (as strings, so they survive rotation) of the selected thoughts; selecting while non-empty.
+    var selectedIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    // Thoughts deleted elsewhere (e.g. on the note screen) drop out of the selection by themselves.
+    val selected = state.thoughts.filter { it.id.toString() in selectedIds }
+    val selecting = selected.isNotEmpty()
+    fun toggle(thought: Thought) {
+        val id = thought.id.toString()
+        selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+    }
+    BackHandler(enabled = selecting) { selectedIds = emptySet() }
+
+    Scaffold(
+        topBar = {
+            if (selecting) {
+                TopAppBar(
+                    navigationIcon = {
+                        IconButton(onClick = { selectedIds = emptySet() }) {
+                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.home_selection_close))
+                        }
+                    },
+                    title = { Text(pluralStringResource(R.plurals.home_selected, selected.size, selected.size)) },
+                    actions = {
+                        if (selected.size < state.thoughts.size) {
+                            TextButton(onClick = { selectedIds = state.thoughts.map { it.id.toString() }.toSet() }) {
+                                Text(stringResource(R.string.home_select_all))
+                            }
+                        }
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.note_delete))
+                        }
+                    },
+                )
+            } else {
+                TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+            }
+        },
+    ) { padding ->
         LazyColumn(
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding() + PipSpacing.s,
@@ -110,12 +159,41 @@ fun HomeScreen(
             }
             items(state.thoughts, key = { it.id }) { thought ->
                 Column(Modifier.animateItem(placementSpec = PipMotion.listItemPlacement)) {
-                    ThoughtRow(thought, onClick = { onThoughtClick(thought) })
+                    val isSelected = thought.id.toString() in selectedIds
+                    ThoughtRow(
+                        thought,
+                        selected = if (selecting) isSelected else null,
+                        onClick = { if (selecting) toggle(thought) else onThoughtClick(thought) },
+                        onLongClick = { toggle(thought) },
+                    )
                     HorizontalDivider()
                 }
             }
         }
     }
+
+    if (confirmDelete) {
+        DeleteSelectedDialog(
+            count = selected.size,
+            onConfirm = {
+                onDeleteThoughts(selected)
+                selectedIds = emptySet()
+                confirmDelete = false
+            },
+            onDismiss = { confirmDelete = false },
+        )
+    }
+}
+
+@Composable
+private fun DeleteSelectedDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(pluralStringResource(R.plurals.home_delete_title, count, count)) },
+        text = { Text(stringResource(R.string.home_delete_text)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.note_delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.note_cancel)) } },
+    )
 }
 
 @Composable
@@ -205,14 +283,18 @@ private fun SensitivitySlider(saved: Float, onChange: (Float) -> Unit) {
     }
 }
 
-/** The note's text (or where its transcript is at), then when it was caught and how long it is. */
+/**
+ * The note's text (or where its transcript is at), then when it was caught and how long it is.
+ * [selected] is null outside selection mode; otherwise a checkbox shows it.
+ */
 @Composable
-private fun ThoughtRow(thought: Thought, onClick: () -> Unit) {
+private fun ThoughtRow(thought: Thought, selected: Boolean?, onClick: () -> Unit, onLongClick: () -> Unit) {
     val context = LocalContext.current
     val seconds = (thought.durationMs / 1000).toInt()
     val text = thought.transcript?.takeIf { thought.status == ThoughtStatus.READY && it.isNotBlank() }
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        leadingContent = selected?.let { { Checkbox(checked = it, onCheckedChange = { onClick() }) } },
         headlineContent = {
             Text(
                 text ?: stringResource(thought.status.placeholder()),
@@ -257,7 +339,7 @@ private fun HomeScreenPreview() {
             ),
             permissions = PermissionState(micGranted = true, micPermanentlyDenied = false, notificationsGranted = true),
             onListeningChange = {}, onSensitivityChange = {}, onPauseInBatterySaverChange = {},
-            onThoughtClick = {}, onRequestMic = {}, onOpenSettings = {},
+            onThoughtClick = {}, onDeleteThoughts = {}, onRequestMic = {}, onOpenSettings = {},
         )
     }
 }

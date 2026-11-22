@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** Editing a transcript and deleting a thought, on the app's real database (it cleans up after itself). */
+/** Editing a transcript and deleting thoughts, on the app's real database (it cleans up after itself). */
 @RunWith(AndroidJUnit4::class)
 class NoteEditingTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext
@@ -40,6 +40,20 @@ class NoteEditingTest {
             assertFalse(audio.exists())
         } finally {
             repository.delete(thought) // No-op if the test got that far.
+        }
+    }
+
+    @Test
+    fun deleteSeveralAtOnce() = runBlocking<Unit> {
+        val thoughts = List(3) { repository.saveCaught(ShortArray(16_000), 16_000) }
+        try {
+            repository.deleteAll(thoughts)
+            for (thought in thoughts) {
+                assertNull(repository.observe(thought.id).first())
+                assertFalse(File(app.filesDir, thought.audioPath).exists())
+            }
+        } finally {
+            repository.deleteAll(thoughts)
         }
     }
 }

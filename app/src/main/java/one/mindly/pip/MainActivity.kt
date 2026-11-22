@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
                     onSensitivityChange = viewModel::setSensitivity,
                     onPauseInBatterySaverChange = viewModel::setPauseInBatterySaver,
                     onThoughtClick = { openId = it.id.toString() },
+                    onDeleteThoughts = viewModel::deleteAll,
                     onRequestMic = requestPermissions,
                     onOpenSettings = ::openAppSettings,
                 )
