@@ -250,6 +250,20 @@ adb logcat --pid=$(adb shell pidof one.mindly.pip)   # everything from the app p
 If the shell can't find Java: `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`;
 adb lives in `~/Library/Android/sdk/platform-tools`.
 
+## Release build (v1.0.0)
+- `./gradlew assembleRelease` → `app/build/outputs/apk/release/`. R8 is on (`optimization` block + `src/main/keepRules/rules.keep`
+  keeps ONNX Runtime and sherpa-onnx: they are called from native code). Unsigned APK ≈ 155 MB (the Whisper model is in it).
+- Signing: `keystore.properties` at the project root (git-ignored; template `keystore.properties.example`) points at a
+  keystore that lives OUTSIDE the repo. The user creates the key and keeps the passwords (never ask for or print them).
+  Without that file the release build is simply unsigned. Back the key up: without it an installed app can't be updated.
+- Release builds are not debuggable, so the diagnostics (mic-level logs, rolling 10 s audio dump) are off.
+- R8 check done 2026-11-22: a temporary debuggable copy of the release build (`initWith(release)`, debug-signed, NOT committed)
+  was installed on the emulator; a test database + WAV pushed with `run-as` (Room schema JSON → sqlite3 on the Mac); the app
+  transcribed the note correctly, loaded the wake word, and caught from the seed button, no crashes. Redo this after changing
+  dependencies or keep rules. (Room uses WAL: read `pip.db`, `-wal` and `-shm` together.)
+- A release build is signed with a different key than the debug build, so it cannot be installed over a debug install
+  (INSTALL_FAILED_UPDATE_INCOMPATIBLE): uninstall first (this deletes the notes; `allowBackup=false`).
+
 ## Plan
 Order agreed 2026-11-22: edit + delete notes (done) → design pass (done, incl. logo) →
 release build for daily use.
