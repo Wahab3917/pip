@@ -268,6 +268,14 @@ release build for daily use.
 Dropped (2026-11-21): categories, tasks, reminders, a second "Hey Pip" tile, a timed "listen for 30 min" mode.
 Later and separate: design pass (theme layer only), connectors.
 
+## README screenshots (docs/screenshots, regenerate when the UI changes)
+App screens: emulator (1080x2400, 420 dpi, same as the user's phone) with clean status bar via SystemUI demo mode
+(`adb shell am broadcast -a com.android.systemui.demo ...`, clock 9:41) and MADE-UP notes inserted by a temporary
+androidTest (never commit it; the user's real notes are personal). Screenshots resized to 540 px wide with `sips`.
+Widget images: `WidgetRenderTest` output (files/widget-render/*.png). App icon: SVG built from `logo.xml` paths with
+the launcher's geometry, rendered by headless Chrome. `hero.png`: four screenshots in phone frames, composed in an HTML
+page and captured with headless Chrome (`--window-size=1700,900`).
+
 ## Known limitations / notes
 - Pre-roll (0.5 s) means a "Hey Pip" recording may start with the tail of "…Pip"; `TranscriptCleaner`
   strips a leading "Hey Pip"/"Pip". Tile/widget catches have no pre-roll.
