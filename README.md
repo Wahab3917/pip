@@ -168,7 +168,7 @@ Then open Pip, allow the microphone and notifications, and tap the seed button. 
 2. **Widget.** Long-press the home screen, open Widgets, and add the 2×2 **Pip** widget.
 3. **Hey Pip.** Switch it on in the app (top bar or Settings). On Samsung phones, also set Pip's battery use to **Unrestricted** so the system does not stop it in the background.
 
-The APK is large (about 190 MB) because the speech model is bundled in it. Debug builds also log extra diagnostics and keep a rolling 10-second audio dump for tuning the wake word; release builds do not.
+The APK is large (about 175 MB) because the speech model is bundled in it. Debug builds also log extra diagnostics and keep a rolling 10-second audio dump for tuning the wake word; release builds do not.
 
 ## Tests
 

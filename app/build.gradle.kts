@@ -49,9 +49,13 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
+            // The code shrinker (R8) is OFF on purpose. It saves about 20 MB of a ~176 MB APK (the speech model is
+            // most of it), and with it on the release build crashed at launch ("IllegalAccessError: Class
+            // kotlin.collections.j extended by class fl is inaccessible", found 2026-11-22 on a clean emulator) while a
+            // debuggable copy of the same build worked. Not worth the risk; turn it on only with a full test of
+            // the NON-debuggable APK (launch, wake word, capture, transcription).
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                enable = false
             }
         }
     }
