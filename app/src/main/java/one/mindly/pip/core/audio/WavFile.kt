@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Writes 16-bit mono PCM as a standard .wav file (a 44-byte header followed by the samples). */
+/** Writes and reads 16-bit mono PCM as a standard .wav file (a 44-byte header followed by the samples). */
 object WavFile {
     private const val HEADER_BYTES = 44
 
@@ -16,6 +16,28 @@ object WavFile {
         val tmp = File(file.parentFile, "${file.name}.tmp")
         tmp.writeBytes(bytes)
         check(tmp.renameTo(file)) { "Could not rename $tmp to $file" }
+    }
+
+    /** A recording read back from disk. */
+    class Audio(val pcm: ShortArray, val sampleRate: Int)
+
+    /** Reads a file written by [write] (16-bit mono PCM). Other WAV layouts are rejected. */
+    fun read(file: File): Audio = decode(file.readBytes())
+
+    fun decode(bytes: ByteArray): Audio {
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        require(bytes.size >= HEADER_BYTES && String(bytes, 0, 4) == "RIFF" && String(bytes, 8, 4) == "WAVE") {
+            "Not a WAV file"
+        }
+        val channels = buffer.getShort(22).toInt()
+        val sampleRate = buffer.getInt(24)
+        val bits = buffer.getShort(34).toInt()
+        require(channels == 1 && bits == 16) { "Expected 16-bit mono, got $channels channels, $bits bits" }
+        val dataBytes = minOf(buffer.getInt(40), bytes.size - HEADER_BYTES)
+        val pcm = ShortArray(dataBytes / 2)
+        buffer.position(HEADER_BYTES)
+        buffer.asShortBuffer().get(pcm)
+        return Audio(pcm, sampleRate)
     }
 
     fun encode(pcm: ShortArray, sampleRate: Int): ByteArray {

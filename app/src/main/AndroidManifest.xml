@@ -45,6 +45,41 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Invisible: started by the tile and the widget to start the mic service (see the class). -->
+        <activity
+            android:name=".quick.QuickActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Pip.Invisible" />
+
+        <!-- "Pip" tile in the quick-settings panel: tap to catch a thought. -->
+        <service
+            android:name=".quick.CatchTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_pip"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Home-screen widget: Catch, "Hey Pip" on/off, Open. -->
+        <receiver
+            android:name=".quick.PipWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_pip_info" />
+        </receiver>
+
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">

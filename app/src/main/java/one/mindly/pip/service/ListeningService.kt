@@ -18,7 +18,6 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -34,18 +33,24 @@ import one.mindly.pip.ui.statusText
 import java.util.Date
 
 /**
- * Keeps Pip listening with the screen off and the phone locked.
+ * Keeps Pip listening with the screen off and the phone locked, and runs one-off catches
+ * from the quick-settings tile and the widget.
  *
  * A *foreground* service of type "microphone" is the only way Android lets an app keep using
  * the mic in the background, and it requires a visible notification. Ours is low-priority
  * (no sound, small icon) and carries the "Pause for 1 hour" action.
+ *
+ * The service runs while "Hey Pip" is on, or while a one-off catch is in progress; when the
+ * engine has nothing left to do it stops itself.
  *
  * This class is only Android glue: the actual listening logic is core/capture/ListeningEngine.
  */
 class ListeningService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var engineJob: Job? = null
+    private var engine: ListeningEngine? = null
+    /** The latest start request; see stopSelfResult() below. */
+    private var lastStartId = 0
     private lateinit var cues: CuePlayer
 
     override fun onCreate() {
@@ -55,6 +60,7 @@ class ListeningService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         val settings = appGraph.settings
         when (intent?.action) {
             ACTION_PAUSE_HOUR -> settings.pauseFor(ONE_HOUR_MS)
@@ -82,12 +88,13 @@ class ListeningService : Service() {
             return START_NOT_STICKY
         }
 
-        if (engineJob == null) startEngine()
+        val engine = engine ?: startEngine()
+        if (intent?.action == ACTION_CATCH) engine.requestCatch()
         // START_STICKY: if Android kills us for memory, it recreates the service later.
         return START_STICKY
     }
 
-    private fun startEngine() {
+    private fun startEngine(): ListeningEngine {
         val graph = appGraph
         val engine = ListeningEngine(
             context = this,
@@ -96,13 +103,18 @@ class ListeningService : Service() {
             status = graph.engineStatus,
             saveThought = { pcm -> graph.repository.saveCaught(pcm, Microphone.SAMPLE_RATE) },
         )
-        engineJob = scope.launch {
+        this.engine = engine
+        scope.launch {
             try {
                 engine.run()
             } catch (e: SecurityException) {
                 Log.e(PIP_LOG_TAG, "[Service] mic permission revoked", e)
-                stopSelf()
             }
+            // run() returned: "Hey Pip" is off and no catch is pending, so there's nothing to do.
+            // stopSelfResult() only stops if no newer start request (e.g. another catch) arrived;
+            // if one did, the next onStartCommand starts a fresh engine.
+            this@ListeningService.engine = null
+            stopSelfResult(lastStartId)
         }
         // Keep the notification text in sync with what the engine is doing.
         scope.launch {
@@ -112,6 +124,7 @@ class ListeningService : Service() {
             }
         }
         Log.i(PIP_LOG_TAG, "[Service] started")
+        return engine
     }
 
     override fun onDestroy() {
@@ -126,7 +139,13 @@ class ListeningService : Service() {
 
     private fun buildNotification(status: EngineStatus): Notification {
         val paused = status as? EngineStatus.Paused
-        val title = getString(if (paused != null) R.string.notif_paused_title else R.string.notif_listening_title)
+        val title = getString(
+            when {
+                paused != null -> R.string.notif_paused_title
+                status == EngineStatus.Capturing -> R.string.notif_catching_title
+                else -> R.string.notif_listening_title
+            }
+        )
         val text = when {
             paused?.untilMs != null -> getString(
                 R.string.notif_paused_until,
@@ -168,10 +187,20 @@ class ListeningService : Service() {
         const val CHANNEL_ALERTS = "alerts"
         private const val ACTION_PAUSE_HOUR = "one.mindly.pip.PAUSE_HOUR"
         private const val ACTION_RESUME = "one.mindly.pip.RESUME"
+        private const val ACTION_CATCH = "one.mindly.pip.CATCH"
         private const val ONE_HOUR_MS = 60 * 60 * 1000L
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, ListeningService::class.java))
+        }
+
+        /**
+         * Records one thought now, without the wake word. Call it only while Pip is in the
+         * foreground (an activity is showing): Android lets a service use the mic only if it
+         * was started from the foreground. QuickActionActivity takes care of that.
+         */
+        fun catchNow(context: Context) {
+            context.startForegroundService(Intent(context, ListeningService::class.java).setAction(ACTION_CATCH))
         }
 
         fun stop(context: Context) {

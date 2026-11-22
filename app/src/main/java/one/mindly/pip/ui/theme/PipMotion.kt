@@ -15,4 +15,7 @@ object PipMotion {
 
     /** How list rows slide when a new thought appears at the top. */
     val listItemPlacement: FiniteAnimationSpec<IntOffset> = tween(MEDIUM_MS)
+
+    /** How often the note screen's progress bar moves while audio plays. */
+    const val playerTickMs = 200L
 }

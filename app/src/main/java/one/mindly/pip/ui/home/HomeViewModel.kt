@@ -3,10 +3,12 @@ package one.mindly.pip.ui.home
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import one.mindly.pip.appGraph
 import one.mindly.pip.core.audio.ThoughtPlayer
 import one.mindly.pip.core.capture.EngineStatus
@@ -20,7 +22,6 @@ data class HomeUiState(
     val settings: PipSettings.Values,
     val engineStatus: EngineStatus,
     val thoughts: List<Thought>,
-    val playingId: UUID?,
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,14 +32,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         graph.settings.values,
         graph.engineStatus,
         graph.repository.thoughts,
-        player.playing,
-    ) { settings, status, thoughts, playing ->
-        HomeUiState(settings, status, thoughts, playing)
-    }.stateIn(
+        ::HomeUiState,
+    ).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        HomeUiState(graph.settings.values.value, graph.engineStatus.value, emptyList(), null),
+        HomeUiState(graph.settings.values.value, graph.engineStatus.value, emptyList()),
     )
+
+    /** The note screen's player (shared, so leaving a note can stop it). */
+    val playerState: StateFlow<ThoughtPlayer.State> = player.state
 
     /** Call only once RECORD_AUDIO is granted (MainActivity takes care of that). */
     fun setListening(enabled: Boolean) {
@@ -51,8 +53,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setPauseInBatterySaver(enabled: Boolean) = graph.settings.setPauseInBatterySaver(enabled)
 
+    fun thought(id: UUID): Flow<Thought?> = graph.repository.observe(id)
+
+    fun retryTranscription(id: UUID) {
+        viewModelScope.launch { graph.repository.retryTranscription(id) }
+    }
+
     fun togglePlayback(thought: Thought) =
         player.toggle(thought.id, graph.repository.audioFile(thought))
+
+    fun seek(thought: Thought, ms: Int) =
+        player.seekTo(thought.id, graph.repository.audioFile(thought), ms)
+
+    fun playbackPositionMs(): Int = player.positionMs()
+
+    fun stopPlayback() = player.stop()
 
     override fun onCleared() = player.stop()
 }

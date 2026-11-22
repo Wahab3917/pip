@@ -1,10 +1,14 @@
 # Pip
 
-A personal, voice-first, offline Android agent with one job: catch a thought the moment it
-appears. Say "Hey Pip" → short "listening" cue → speak → after ~2 s of silence a "caught" cue
-plays and the note is saved. Works with the screen off and the phone locked, with no UI.
-Later, in the background, each note is transcribed offline, categorised, and any reminder
-is scheduled. Everything stays on the device.
+A personal, voice-first, offline Android app with one job: catch an idea the moment it
+appears. Trigger → short "listening" cue → speak → after ~2 s of silence a "caught" cue plays
+and the note is saved. Three triggers: say "Hey Pip" (when switched on), tap the "Pip" tile in the
+quick-settings panel (works on the lock screen), or tap "Catch" on the home-screen widget.
+In the background each note is then transcribed offline; opening a note shows the text with
+the recording above it. Everything stays on the device.
+
+**Scope is deliberately small (user decision, 2026-11-21): Pip only saves ideas.** No categories,
+tasks, reminders or a second tile. Notes are in English.
 
 Package `one.mindly.pip` · Kotlin + Jetpack Compose + Material 3 · minSdk 29 · target/compile 37.
 Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
@@ -29,25 +33,32 @@ Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
 - `res/raw/cue_listening.wav`, `cue_caught.wav`, `cue_missed.wav`: placeholder tones made
   by `tools/generate_cues.py` (`python3 tools/generate_cues.py` to regenerate)
 - `res/values/strings.xml`: all copy
+- `res/values/colors.xml` + `dimens.xml`, `res/layout/widget_pip.xml`, `res/drawable/widget_*.xml`: the
+  home-screen widget (RemoteViews can't use Compose, so it has its own colors and sizes)
+- `res/drawable/ic_back|ic_play|ic_pause.xml`: Material icons (tinted by the theme), `ic_stat_pip.xml`:
+  notification and tile icon
 - Also design-adjacent: haptic patterns + the `HAPTICS_ALWAYS` flag in `core/feedback/CuePlayer.kt`
-  (they live in core because the UI-less service plays them); notification icon `res/drawable/ic_stat_pip.xml`.
+  (they live in core because the UI-less service plays them).
 
 ## Architecture
 ```
 one.mindly.pip
-├── PipApp.kt              Application; builds AppGraph (manual DI: settings, DB, repository, engine status)
-├── MainActivity.kt        permissions (RECORD_AUDIO, POST_NOTIFICATIONS) + hosts HomeScreen
+├── PipApp.kt              Application; builds AppGraph (manual DI: settings, DB, processor, repository, engine status);
+│                          starts leftover transcriptions; keeps the widget label in step with the setting
+├── MainActivity.kt        permissions (RECORD_AUDIO, POST_NOTIFICATIONS); shows HomeScreen or NoteScreen
 ├── core/                  NO Android UI imports
-│   ├── audio/             Microphone (AudioRecord 16 kHz mono PCM16), WavFile, PreRollBuffer, ThoughtPlayer
+│   ├── audio/             Microphone (AudioRecord 16 kHz mono PCM16), WavFile (write + read), PreRollBuffer, ThoughtPlayer (play/pause/seek)
 │   ├── wakeword/          WakeWordDetector (our own "Hey Pip" model on onnxruntime), WakeWordTuning (sensitivity → threshold)
 │   ├── vad/               SpeechDetector (sherpa-onnx silero VAD)
-│   ├── capture/           ListeningEngine (the loop), CaptureSession (pure, unit-tested rules), EngineStatus
+│   ├── capture/           ListeningEngine (the loop + requestCatch), CaptureSession (pure, unit-tested rules), EngineStatus
 │   ├── feedback/          CuePlayer (SoundPool on notification volume + haptics)
 │   ├── storage/           Room: Thought entity, ThoughtDao, PipDatabase, Converters, ThoughtRepository
-│   ├── processing/        ThoughtProcessor seam (Phase 1: LogOnlyProcessor; Phase 2: WorkManager)
+│   ├── processing/        ThoughtProcessor seam → WorkManagerProcessor; TranscriptionWorker
+│   ├── transcription/     Transcriber (sherpa-onnx offline ASR, cut at pauses), SpeechModel (which model), TranscriptCleaner
 │   └── settings/          PipSettings (SharedPreferences mirrored into a StateFlow)
 ├── service/               Android glue: ListeningService (foreground, type=microphone), BootReceiver
-└── ui/                    StatusText, home/ (HomeScreen + HomeViewModel), theme/
+├── quick/                 CatchTileService ("Pip" tile in quick settings), PipWidget (home screen: Catch, Hey Pip on/off, Open), QuickActionActivity (invisible trampoline)
+└── ui/                    StatusText, home/ (HomeScreen + HomeViewModel), note/ (NoteScreen), theme/
 ```
 
 ### Capture flow
@@ -64,7 +75,14 @@ one.mindly.pip
 4. About once a second the engine checks whether to pause: user pause (`pausedUntilMs`), phone/VoIP
    call (`AudioManager.mode`), battery saver (if enabled). Paused = mic released. If another app
    takes the mic, Android feeds us silence (`isClientSilenced` / exact zeros); we wait it out.
-5. `BootReceiver` restarts listening after reboot on Android ≤ 13. On Android 14+ starting a
+5. Tile / widget "Catch": opens `QuickActionActivity` (invisible, `showWhenLocked`, lets taps through), which
+   calls `ListeningService.catchNow()` and closes once the engine is capturing (max 3 s). Why the activity:
+   Android only lets a foreground service use the mic if it was *started* while the app was in the foreground.
+   The engine records with no wake word and no pre-roll, whether "Hey Pip" is on, off or paused; a request
+   during a capture is ignored. With "Hey Pip" off the engine's `run()` returns after the catch and the
+   service stops itself (`stopSelfResult`, so a newer request isn't lost). The widget's "Hey Pip: on/off"
+   goes through the same activity (turning it on starts the mic service).
+6. `BootReceiver` restarts listening after reboot on Android ≤ 13. On Android 14+ starting a
    microphone foreground service from BOOT_COMPLETED is forbidden, so it posts a "tap to resume"
    notification; opening the app restarts the service (`MainActivity.onResume`).
 
@@ -72,15 +90,41 @@ one.mindly.pip
 `Thought(id: UUID, createdAt: Instant, audioPath (relative to filesDir), durationMs, transcript?,
 category: IDEA|TASK|REMINDER|SHOPPING|THOUGHT (default THOUGHT), categorySource: RULE|USER,
 remindAt?, status: CAUGHT|TRANSCRIBING|READY|FAILED, state: POCKET|PLANTED|LET_GO)`.
-Schema changes need a version bump + Migration. Never use destructive migration.
+`category`, `categorySource` and `remindAt` are unused since the scope cut (kept: removing columns needs a
+migration, and unused columns cost nothing). Schema changes need a version bump + Migration. Never use
+destructive migration.
 
-## Models (in `app/src/main/assets`, ~4.0 MB total)
+### Transcription
+`saveCaught()` → `WorkManagerProcessor.enqueue()` → one unique WorkManager job ("transcribe",
+APPEND_OR_REPLACE) that works through every CAUGHT thought, oldest first: status TRANSCRIBING → read WAV →
+`Transcriber` (silero VAD cuts the note at pauses into ≤ 20 s pieces, each padded 0.25 s, decoded separately)
+→ `TranscriptCleaner` (drops a leading "Hey Pip"/"Pip", non-speech tags like [BLANK_AUDIO], capitalises) →
+READY with the text, or FAILED (note screen has "Try again"). On start the job puts TRANSCRIBING rows back to
+CAUGHT (a crash mid-job); `PipApp` also starts the job on every launch, so old Phase-1 notes get transcribed.
+One job at a time = one copy of the model in memory. Threads: min(cores, 4).
+
+## Models (in `app/src/main/assets`: ~4 MB in git + the ~160 MB speech model, fetched)
 | File | Size | What |
 |---|---|---|
 | `wake/melspectrogram.onnx` | 1.09 MB | frozen front-end step 1 (openWakeWord v0.5.1, Apache-2.0) |
 | `wake/embedding_model.onnx` | 1.33 MB | frozen front-end step 2: Google speech embedding (openWakeWord v0.5.1) |
 | `wake/hey_pip.onnx` | 0.86 MB | OUR classifier, trained in `training/` on the user's voice (`training/export_to_app.py` copies it here) |
 | `vad/silero_vad.onnx` | 0.64 MB | voice activity detection via sherpa-onnx (`asr-models` release) |
+| `asr/base.en-*.int8.onnx` + tokens | 156 MB | Whisper base.en (MIT) via sherpa-onnx. NOT in git: `tools/fetch_speech_model.sh` |
+
+Speech model choice (`training/compare_asr.py`, 36 synthetic notes: 12 sentences × 7 Mac voices incl. Indian
+English, each clean / noisy 12 dB / echo + noise; word error rate, speed on the M3 Mac):
+| Model | Size | WER all (clean/noisy/echo) | Speed |
+|---|---|---|---|
+| Whisper base.en | 160 MB | 15.6% (8.1/11.9/26.7) | 0.05× real time |
+| Moonshine base | 286 MB | 14.8% (5.9/10.4/28.1) | 0.017× |
+| Whisper tiny.en | 103 MB | 19.0% (9.6/10.4/37.0) | 0.03× |
+| Moonshine tiny | 124 MB | 25.2% (8.9/14.1/52.6) | 0.008× |
+Most "clean" errors are spelling ("10"/"ten", "favorite"/"favourite", "Murray"/"Murree"). Picked Whisper base.en
+(close to best, nearly half the size). OPEN QUESTION: speed on the A32. Whisper always encodes a 30 s window, so
+short notes cost the same as long ones; the 1-core emulator took ~25 s to load + ~14 s per 4 s note. If the A32
+is too slow, switch to Moonshine base (time scales with note length, 3× faster on the Mac): only
+`SpeechModel.kt` + `tools/fetch_speech_model.sh` change. `TranscriptionTest` logs load and decode times.
 
 Wake word: `core/wakeword/WakeWordDetector.kt` runs the three `wake/` models through `onnxruntime-android`
 (1.28.0) every 80 ms. Its streaming rules must match `training/pipww/features.py`; the instrumented test
@@ -136,13 +180,17 @@ where the user said nothing (correctly saved nothing, missed cue), no errors. Wa
   emulator. This is the main battery risk. Idea if it hurts: only run the wake-word model when the audio is
   loud enough to be speech (cheap energy gate).
 - NOT yet measured: false wakes in everyday life (TV, conversation) and all-day battery use.
-- NEXT: an all-day run (note battery % before and after, Pip set to "Unrestricted" in Samsung battery
-  settings), count false wakes from `adb logcat -s Pip`, then decide on the energy gate. Then Phase 2.
+- Later hands-on use (user, 2026-11-21): caught "Hey Pip" ~90-95% of the time. The user won't keep it on all
+  day, which is why the tile and widget triggers were added.
 
 ## Build / run
 ```
+tools/fetch_speech_model.sh     # once: downloads the speech model into assets (not in git)
 ./gradlew installDebug          # build + install on the connected device
-./gradlew testDebugUnitTest     # JVM unit tests (CaptureSession, WavFile, WakeWordTuning)
+./gradlew testDebugUnitTest     # JVM unit tests (CaptureSession, WavFile, WakeWordTuning, TranscriptCleaner)
+ANDROID_SERIAL=<device> ./gradlew connectedDebugAndroidTest
+                                # on-device: WakeWordDetectorTest, TranscriptionTest (incl. save → job → text),
+                                # QuickActionTest (widget toggle, catch with Hey Pip off). Restores settings, deletes its note.
 adb logcat -s Pip               # Pip's own log lines ([Engine], [Service], [Storage], …)
 adb logcat -s Pip sherpa-onnx   # + native VAD logs
 adb logcat --pid=$(adb shell pidof one.mindly.pip)   # everything from the app process
@@ -150,21 +198,23 @@ adb logcat --pid=$(adb shell pidof one.mindly.pip)   # everything from the app p
 If the shell can't find Java: `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`;
 adb lives in `~/Library/Android/sdk/platform-tools`.
 
-## Phase plan
-1. **Hey Pip + capture + storage** ← current. Service, wake word, cues/haptics, VAD capture to WAV,
-   Room (status CAUGHT), simple home screen (toggle, sensitivity, recordings with tap-to-play).
-2. Transcription, categories, reminders: Whisper base.en via sherpa-onnx in a WorkManager job
-   (replaces `LogOnlyProcessor`); keyword categories Idea/Task/Reminder/Shopping/Thought in one
-   editable Kotlin file; on-device reminder time parsing + exact alarms.
-3. All screens working (Material defaults).
-4. Quick-settings tile, onboarding (incl. Samsung "Unrestricted" battery setting), battery tuning.
-5. Search, export, nudge.
+## Plan
+1. DONE: "Hey Pip" + capture + storage (custom wake word, works on the A32).
+2. DONE on the emulator (2026-11-21), NOT yet on the A32: "Pip" quick-settings tile, widget (Catch, Hey Pip
+   on/off, Open), offline transcription, note screen (audio player on top, transcript below), notes list shows text.
+   NEXT on the phone: `tools/fetch_speech_model.sh`, install, run `connectedDebugAndroidTest` (transcription
+   speed!), add the tile (swipe down → ⋮ → Edit buttons) and widget, try the tile on the LOCK SCREEN, catch a few
+   real English notes and check the transcripts (`training/compare_asr.py` on notes pulled from the phone).
+3. Later, if wanted: onboarding (incl. Samsung "Unrestricted" battery setting), battery tuning (energy gate for
+   the wake word: ~30 ms CPU per 80 ms chunk on the A32), search, export, delete a note, delete audio after N days.
 
+Dropped (2026-11-21): categories, tasks, reminders, a second "Hey Pip" tile, a timed "listen for 30 min" mode.
 Later and separate: design pass (theme layer only), connectors.
 
 ## Known limitations / notes
-- Pre-roll (0.5 s) means a recording may start with the tail of "…Pip". Phase 2 transcription
-  should strip a leading "pip".
+- Pre-roll (0.5 s) means a "Hey Pip" recording may start with the tail of "…Pip"; `TranscriptCleaner`
+  strips a leading "Hey Pip"/"Pip". Tile/widget catches have no pre-roll.
+- The tile and widget need the mic permission already granted; otherwise they open the app.
 - Capture buffers the note in memory (≤ 2 min ≈ 3.8 MB) and writes it at the end; a crash
   *during* the note loses that note.
 - Samsung may kill background apps unless Pip's battery setting is "Unrestricted" (Phase 4 onboarding).

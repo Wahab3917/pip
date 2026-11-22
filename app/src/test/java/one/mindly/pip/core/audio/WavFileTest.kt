@@ -1,5 +1,6 @@
 package one.mindly.pip.core.audio
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.nio.ByteBuffer
@@ -22,5 +23,12 @@ class WavFileTest {
         assertEquals(8, b.getInt(40))
         assertEquals(-32768, b.getShort(44 + 6).toInt())
         assertEquals(44 + 8, bytes.size)
+    }
+
+    @Test fun `decode reads back exactly what encode wrote`() {
+        val pcm = shortArrayOf(0, 1, -1, 1234, 32767, -32768)
+        val audio = WavFile.decode(WavFile.encode(pcm, 16_000))
+        assertEquals(16_000, audio.sampleRate)
+        assertArrayEquals(pcm, audio.pcm)
     }
 }

@@ -20,7 +20,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import one.mindly.pip.R
 import one.mindly.pip.core.capture.EngineStatus
@@ -53,7 +53,8 @@ data class PermissionState(
 )
 
 /**
- * Phase 1 home screen: listening switch, sensitivity, and the list of caught recordings.
+ * Home screen: the "Hey Pip" switch and its sensitivity, and the list of caught thoughts.
+ * Tapping a thought opens it (NoteScreen).
  * Stateless: it only draws [state] and reports taps through callbacks, which makes it easy
  * to preview and, later, to restyle.
  */
@@ -109,7 +110,7 @@ fun HomeScreen(
             }
             items(state.thoughts, key = { it.id }) { thought ->
                 Column(Modifier.animateItem(placementSpec = PipMotion.listItemPlacement)) {
-                    ThoughtRow(thought, isPlaying = thought.id == state.playingId, onClick = { onThoughtClick(thought) })
+                    ThoughtRow(thought, onClick = { onThoughtClick(thought) })
                     HorizontalDivider()
                 }
             }
@@ -204,39 +205,38 @@ private fun SensitivitySlider(saved: Float, onChange: (Float) -> Unit) {
     }
 }
 
+/** The note's text (or where its transcript is at), then when it was caught and how long it is. */
 @Composable
-private fun ThoughtRow(thought: Thought, isPlaying: Boolean, onClick: () -> Unit) {
+private fun ThoughtRow(thought: Thought, onClick: () -> Unit) {
     val context = LocalContext.current
     val seconds = (thought.durationMs / 1000).toInt()
+    val text = thought.transcript?.takeIf { thought.status == ThoughtStatus.READY && it.isNotBlank() }
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = {
             Text(
-                DateUtils.formatDateTime(
-                    context, thought.createdAt.toEpochMilli(),
-                    DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
-                )
+                text ?: stringResource(thought.status.placeholder()),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = if (text != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         supportingContent = {
             Text(
-                stringResource(R.string.thought_duration, seconds / 60, seconds % 60) +
-                    " · " + stringResource(thought.status.label())
+                DateUtils.formatDateTime(
+                    context, thought.createdAt.toEpochMilli(),
+                    DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
+                ) + " · " + stringResource(R.string.thought_duration, seconds / 60, seconds % 60)
             )
-        },
-        trailingContent = {
-            TextButton(onClick = onClick) {
-                Text(stringResource(if (isPlaying) R.string.home_stop else R.string.home_play))
-            }
         },
     )
 }
 
-private fun ThoughtStatus.label(): Int = when (this) {
-    ThoughtStatus.CAUGHT -> R.string.thought_status_caught
-    ThoughtStatus.TRANSCRIBING -> R.string.thought_status_transcribing
-    ThoughtStatus.READY -> R.string.thought_status_ready
-    ThoughtStatus.FAILED -> R.string.thought_status_failed
+/** Shown instead of the text when there's no transcript (yet). */
+private fun ThoughtStatus.placeholder(): Int = when (this) {
+    ThoughtStatus.CAUGHT, ThoughtStatus.TRANSCRIBING -> R.string.thought_transcribing
+    ThoughtStatus.FAILED -> R.string.thought_failed
+    ThoughtStatus.READY -> R.string.thought_no_words
 }
 
 @Preview(showBackground = true)
@@ -249,9 +249,11 @@ private fun HomeScreenPreview() {
                 engineStatus = EngineStatus.Listening,
                 thoughts = listOf(
                     Thought(UUID.randomUUID(), Instant.now(), "thoughts/a.wav", 7_400),
-                    Thought(UUID.randomUUID(), Instant.now().minusSeconds(3600), "thoughts/b.wav", 63_000),
+                    Thought(
+                        UUID.randomUUID(), Instant.now().minusSeconds(3600), "thoughts/b.wav", 63_000,
+                        transcript = "Buy oat milk, eggs, and a new phone charger.", status = ThoughtStatus.READY,
+                    ),
                 ),
-                playingId = null,
             ),
             permissions = PermissionState(micGranted = true, micPermanentlyDenied = false, notificationsGranted = true),
             onListeningChange = {}, onSensitivityChange = {}, onPauseInBatterySaverChange = {},

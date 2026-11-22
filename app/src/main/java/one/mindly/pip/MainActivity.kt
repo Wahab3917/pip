@@ -16,6 +16,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -24,7 +25,9 @@ import one.mindly.pip.service.ListeningService
 import one.mindly.pip.ui.home.HomeScreen
 import one.mindly.pip.ui.home.HomeViewModel
 import one.mindly.pip.ui.home.PermissionState
+import one.mindly.pip.ui.note.NoteScreen
 import one.mindly.pip.ui.theme.PipTheme
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private val viewModel: HomeViewModel by viewModels()
@@ -56,6 +59,28 @@ class MainActivity : ComponentActivity() {
                     onPauseOrDispose {}
                 }
 
+                // Two screens, so no navigation library: the open note's id, or null for the home screen.
+                var openId by rememberSaveable { mutableStateOf<String?>(null) }
+                val open = openId?.let { id ->
+                    viewModel.thought(UUID.fromString(id)).collectAsStateWithLifecycle(null).value
+                }
+                if (open != null) {
+                    val player by viewModel.playerState.collectAsStateWithLifecycle()
+                    NoteScreen(
+                        thought = open,
+                        player = player,
+                        positionMs = viewModel::playbackPositionMs,
+                        onTogglePlay = { viewModel.togglePlayback(open) },
+                        onSeek = { viewModel.seek(open, it) },
+                        onRetry = { viewModel.retryTranscription(open.id) },
+                        onBack = {
+                            viewModel.stopPlayback()
+                            openId = null
+                        },
+                    )
+                    return@PipTheme
+                }
+
                 HomeScreen(
                     state = state,
                     permissions = permissions,
@@ -69,7 +94,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onSensitivityChange = viewModel::setSensitivity,
                     onPauseInBatterySaverChange = viewModel::setPauseInBatterySaver,
-                    onThoughtClick = viewModel::togglePlayback,
+                    onThoughtClick = { openId = it.id.toString() },
                     onRequestMic = requestPermissions,
                     onOpenSettings = ::openAppSettings,
                 )

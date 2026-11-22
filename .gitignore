@@ -19,3 +19,6 @@ local.properties
 *.pt
 *.pcm
 last10s.wav
+
+# The speech-to-text model (~160 MB): tools/fetch_speech_model.sh downloads it.
+app/src/main/assets/asr/

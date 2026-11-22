@@ -8,6 +8,7 @@
     <string name="channel_alerts_name">Alerts</string>
     <string name="notif_listening_title">Pip is listening</string>
     <string name="notif_listening_text">Say \"Hey Pip\" to catch a thought.</string>
+    <string name="notif_catching_title">Pip is catching a thought</string>
     <string name="notif_paused_title">Pip is paused</string>
     <string name="notif_paused_until">Back at %1$s.</string>
     <string name="notif_action_pause_hour">Pause for 1 hour</string>
@@ -27,21 +28,37 @@
     <string name="status_error">Microphone unavailable, retrying…</string>
 
     <!-- Home screen -->
-    <string name="home_listening_label">Listening</string>
+    <string name="home_listening_label">Hey Pip</string>
     <string name="home_sensitivity_label">Sensitivity</string>
     <string name="home_sensitivity_strict">Fewer false wakes</string>
     <string name="home_sensitivity_loose">Hears you more easily</string>
     <string name="home_sensitivity_detail">wakes above %1$.2f</string>
     <string name="home_battery_saver_label">Pause in battery saver</string>
     <string name="home_recordings_header">Caught thoughts</string>
-    <string name="home_recordings_empty">Nothing caught yet. Say \"Hey Pip\".</string>
-    <string name="home_play">Play</string>
-    <string name="home_stop">Stop</string>
+    <string name="home_recordings_empty">Nothing caught yet. Tap Catch in quick settings or on the widget, or say \"Hey Pip\".</string>
     <string name="thought_duration">%1$d:%2$02d</string>
-    <string name="thought_status_caught">Caught</string>
-    <string name="thought_status_transcribing">Transcribing</string>
-    <string name="thought_status_ready">Ready</string>
-    <string name="thought_status_failed">Failed</string>
+    <string name="thought_transcribing">Transcribing…</string>
+    <string name="thought_failed">Couldn\'t transcribe. The recording is safe.</string>
+    <string name="thought_no_words">No words heard. The recording is safe.</string>
+
+    <!-- Note screen -->
+    <string name="note_back">Back</string>
+    <string name="note_play">Play</string>
+    <string name="note_pause">Pause</string>
+    <string name="note_time">%1$s / %2$s</string>
+    <string name="note_transcribing">Transcribing…</string>
+    <string name="note_failed">Couldn\'t transcribe this one. The recording above is safe.</string>
+    <string name="note_retry">Try again</string>
+    <string name="note_no_words">No words heard. Play the recording above to listen.</string>
+
+    <!-- Quick-settings tile and home-screen widget -->
+    <string name="tile_label">Pip</string>
+    <string name="widget_label">Pip</string>
+    <string name="widget_description">Catch a thought, turn \"Hey Pip\" on and off, or open Pip.</string>
+    <string name="widget_catch">Catch</string>
+    <string name="widget_hey_pip_on">Hey Pip: on</string>
+    <string name="widget_hey_pip_off">Hey Pip: off</string>
+    <string name="widget_open">Open</string>
 
     <!-- Permissions -->
     <string name="perm_mic_needed">Pip needs the microphone to hear \"Hey Pip\". Audio never leaves this phone.</string>

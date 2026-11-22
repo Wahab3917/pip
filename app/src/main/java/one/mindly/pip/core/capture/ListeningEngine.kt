@@ -14,7 +14,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -31,14 +33,19 @@ import one.mindly.pip.core.wakeword.WakeWordTuning
 import java.io.File
 
 /**
- * The capture path: mic → "Hey Pip" → record until silence → save. Deliberately dumb:
+ * The capture path: trigger → record until silence → save. Deliberately dumb:
  * it never transcribes or thinks, it only makes sure the audio lands on disk.
  *
- * One audio stream feeds everything. While idle, each 100 ms chunk goes to the wake-word
- * detector. After a wake word, the same stream goes to the VAD and into the recording.
+ * Two triggers start a capture:
+ * - "Hey Pip", while the user has it switched on. One audio stream feeds everything: while
+ *   idle, each 100 ms chunk goes to the wake-word detector; after a wake word, the same stream
+ *   goes to the VAD and into the recording.
+ * - [requestCatch], from the quick-settings tile or the widget. It works whether "Hey Pip" is
+ *   on, off or paused (the user asked explicitly, so a pause doesn't apply).
  *
- * [run] loops until its coroutine is cancelled (the service stops), releasing the mic
- * whenever listening should pause (call, user pause, battery saver) and reopening it after.
+ * [run] returns when there is nothing left to do ("Hey Pip" is off and no catch is pending),
+ * or is cancelled when the service stops. While "Hey Pip" is on it releases the mic whenever
+ * listening should pause (call, user pause, battery saver) and reopens it after.
  */
 class ListeningEngine(
     private val context: Context,
@@ -52,8 +59,20 @@ class ListeningEngine(
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val powerManager = context.getSystemService(PowerManager::class.java)
 
-    private lateinit var wakeWord: WakeWordDetector
+    /** Loaded the first time "Hey Pip" listening starts, so a one-off catch doesn't pay for it. */
+    private var wakeWord: WakeWordDetector? = null
     private lateinit var speech: SpeechDetector
+
+    /** Set by [requestCatch], cleared when the capture starts. */
+    private val catchRequested = MutableStateFlow(false)
+
+    /**
+     * Start a capture now, without the wake word. Safe to call from any thread.
+     * Ignored while a capture is already running: that one is already catching the thought.
+     */
+    fun requestCatch() {
+        if (status.value != EngineStatus.Capturing) catchRequested.value = true
+    }
 
     /** Mic level logs + rolling audio dump, only in debuggable (development) builds. */
     private val diagnostics =
@@ -67,30 +86,56 @@ class ListeningEngine(
     suspend fun run() = withContext(Dispatchers.IO) {
         status.value = EngineStatus.Starting
         speech = SpeechDetector(context.assets)
-        loadWakeWord(settings.values.value.sensitivity)
         try {
             while (isActive) {
+                if (catchRequested.value) {
+                    catchOnce()
+                    continue
+                }
+                if (!settings.values.value.listeningEnabled) break // Only here for a one-off catch.
+
                 val pause = pauseCondition()
                 if (pause != null) {
                     if (status.value != pause) Log.i(PIP_LOG_TAG, "[Engine] paused: $pause")
                     status.value = pause
-                    // Re-check every 2 s, or immediately if a setting changes (e.g. "Resume").
+                    // Re-check every 2 s, or at once if a setting changes (e.g. "Resume") or a catch is requested.
                     val current = settings.values.value
-                    withTimeoutOrNull(PAUSE_RECHECK_MS) { settings.values.first { it != current } }
+                    withTimeoutOrNull(PAUSE_RECHECK_MS) {
+                        merge(settings.values.filter { it != current }, catchRequested.filter { it }).first()
+                    }
                     continue
                 }
-                listenUntilPaused()
+                listenUntilPaused(wakeWord ?: loadWakeWord(settings.values.value.sensitivity))
             }
         } finally {
-            wakeWord.close()
+            wakeWord?.close()
             speech.close()
             status.value = EngineStatus.Off
         }
     }
 
+    /** A capture asked for by the tile or widget while the mic isn't already open. */
+    @SuppressLint("MissingPermission") // run() requires RECORD_AUDIO, and only run() calls this.
+    private suspend fun catchOnce() {
+        Log.i(PIP_LOG_TAG, "[Engine] catch requested")
+        val mic = Microphone()
+        if (!mic.open()) {
+            catchRequested.value = false
+            Log.w(PIP_LOG_TAG, "[Engine] mic unavailable, can't catch")
+            cues.play(Cue.MISSED)
+            return
+        }
+        Log.i(PIP_LOG_TAG, "[Engine] mic open for the catch")
+        try {
+            capture(mic, preRoll = ShortArray(0))
+        } finally {
+            mic.close()
+        }
+    }
+
     /** Opens the mic and listens for the wake word until we should pause, or the mic fails. */
     @SuppressLint("MissingPermission") // run() requires RECORD_AUDIO, and only run() calls this.
-    private suspend fun listenUntilPaused() {
+    private suspend fun listenUntilPaused(wakeWord: WakeWordDetector) {
         val mic = Microphone()
         if (!mic.open()) {
             Log.w(PIP_LOG_TAG, "[Engine] mic unavailable, retrying in ${MIC_RETRY_MS / 1000} s")
@@ -113,9 +158,17 @@ class ListeningEngine(
                 val pcm = buffer.copyOf(read)
                 diagnostics?.onChunk(pcm)
 
-                // About once a second: time to pause? Did the sensitivity slider move?
+                // The tile or widget asked for a catch: no wake word needed, and the mic is already open.
+                if (catchRequested.value) {
+                    Log.i(PIP_LOG_TAG, "[Engine] catch requested")
+                    capture(mic, preRoll = ShortArray(0))
+                    wakeWord.reset()
+                    continue
+                }
+
+                // About once a second: time to pause, or to stop? Did the sensitivity slider move?
                 if (++chunkCount % CHECK_EVERY_CHUNKS == 0L) {
-                    if (pauseCondition() != null) return
+                    if (pauseCondition() != null || !settings.values.value.listeningEnabled) return
                     wakeWord.threshold = WakeWordTuning.thresholdFor(settings.values.value.sensitivity)
                 }
 
@@ -153,6 +206,7 @@ class ListeningEngine(
 
     /** Records from the open [mic] until CaptureSession decides it's caught or missed. */
     private suspend fun capture(mic: Microphone, preRoll: ShortArray) {
+        catchRequested.value = false
         status.value = EngineStatus.Capturing
         cues.play(Cue.LISTENING)
         speech.reset()
@@ -186,7 +240,7 @@ class ListeningEngine(
                 cues.play(if (saved) Cue.CAUGHT else Cue.MISSED)
             }
             CaptureSession.Outcome.Missed -> {
-                Log.i(PIP_LOG_TAG, "[Engine] no speech after wake word, nothing saved")
+                Log.i(PIP_LOG_TAG, "[Engine] no speech heard, nothing saved")
                 cues.play(Cue.MISSED)
             }
             CaptureSession.Outcome.Continue -> Unit
@@ -206,14 +260,16 @@ class ListeningEngine(
         }
     }
 
-    private fun loadWakeWord(sensitivity: Float) {
+    private fun loadWakeWord(sensitivity: Float): WakeWordDetector {
         val started = SystemClock.elapsedRealtime()
-        wakeWord = WakeWordDetector(context.assets, WakeWordTuning.thresholdFor(sensitivity))
+        val detector = WakeWordDetector(context.assets, WakeWordTuning.thresholdFor(sensitivity))
         Log.i(
             PIP_LOG_TAG,
             "[Engine] wake word model loaded in ${SystemClock.elapsedRealtime() - started} ms, " +
-                "threshold ${wakeWord.threshold}",
+                "threshold ${detector.threshold}",
         )
+        wakeWord = detector
+        return detector
     }
 
     private companion object {

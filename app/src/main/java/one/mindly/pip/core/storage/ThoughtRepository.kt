@@ -19,6 +19,8 @@ class ThoughtRepository(
 ) {
     val thoughts: Flow<List<Thought>> = dao.observeAll()
 
+    fun observe(id: UUID): Flow<Thought?> = dao.observe(id)
+
     /**
      * Saves a freshly captured recording. The order is the "never lose a thought" rule:
      * 1. write the audio to disk, 2. insert the row, 3. queue the slow, redoable processing.
@@ -42,6 +44,24 @@ class ThoughtRepository(
     }
 
     fun audioFile(thought: Thought): File = File(filesDir, thought.audioPath)
+
+    /** "Try again" for a failed transcript: put it back in the queue. */
+    suspend fun retryTranscription(id: UUID) {
+        dao.setStatus(id, ThoughtStatus.CAUGHT)
+        processor.enqueue(id)
+    }
+
+    // --- Used by TranscriptionWorker ---------------------------------------------------------
+
+    suspend fun requeueInterrupted() = dao.requeueInterrupted()
+
+    /** Claims the oldest untranscribed thought (marks it TRANSCRIBING), or null when none are left. */
+    suspend fun claimNextToTranscribe(): Thought? =
+        dao.nextToTranscribe()?.also { dao.setStatus(it.id, ThoughtStatus.TRANSCRIBING) }
+
+    suspend fun saveTranscript(id: UUID, transcript: String) = dao.setTranscript(id, transcript)
+
+    suspend fun markFailed(id: UUID) = dao.setStatus(id, ThoughtStatus.FAILED)
 
     private companion object {
         const val AUDIO_DIR = "thoughts"

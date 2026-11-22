@@ -56,7 +56,7 @@ ksp {
 }
 
 dependencies {
-    // sherpa-onnx prebuilt Android library (voice activity detection; Whisper in Phase 2), from
+    // sherpa-onnx prebuilt Android library (voice activity detection + offline speech-to-text), from
     // https://github.com/k2-fsa/sherpa-onnx/releases/tag/v2.0.1. We use the build with ONNX Runtime
     // linked INSIDE it, so it doesn't clash with onnxruntime-android's libonnxruntime.so below
     // (their exported symbols carry different version tags: VERS_1.28.2 vs VERS_1.28.0).
@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.work.runtime.ktx) // Background transcription.
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

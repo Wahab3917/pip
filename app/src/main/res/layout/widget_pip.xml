@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget (PipWidget). Colors and sizes come from colors.xml / dimens.xml (theme layer). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="@dimen/widget_padding">
+
+    <TextView
+        android:id="@+id/widget_catch"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_button"
+        android:gravity="center"
+        android:text="@string/widget_catch"
+        android:textColor="@color/widget_on_button"
+        android:textSize="@dimen/widget_catch_text"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_marginStart="@dimen/widget_padding"
+        android:gravity="center"
+        android:paddingHorizontal="@dimen/widget_padding"
+        android:text="@string/widget_hey_pip_off"
+        android:textColor="@color/widget_on_background"
+        android:textSize="@dimen/widget_toggle_text" />
+
+    <TextView
+        android:id="@+id/widget_open"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:paddingHorizontal="@dimen/widget_padding"
+        android:text="@string/widget_open"
+        android:textColor="@color/widget_on_background"
+        android:textSize="@dimen/widget_toggle_text" />
+</LinearLayout>
