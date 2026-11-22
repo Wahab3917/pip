@@ -34,8 +34,11 @@ Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
   Variable fonts, bundled (OFL, see `/licenses`)
 - `ui/theme/PipShapes.kt`: 16dp cards, hairline width, `PipSpacing` (8dp grid, seed button, overlay sizes)
 - `ui/theme/PipMotion.kt`: ~200 ms fades/slides, seed breath amount, shimmer speed
-- `res/values/logo.xml`: THE SEED path (placeholder until the real logo). Every icon reads it: `ic_seed`,
-  `ic_stat_pip` (notification + tile), `ic_launcher_foreground` (adaptive + monochrome icon). One shape, 24×24.
+- `res/values/logo.xml`: THE SEED: "Sunflower Seed" by Amethyst Studio, Noun Project, CC BY 3.0 (credited in
+  README; credit text removed from the SVG). 504×504 viewport. `seed_solid_path` = filled outline (`ic_seed_solid`,
+  `ic_stat_pip` notification + tile, widget, wordmark dot, `ic_launcher_monochrome` themed icon);
+  `seed_lines_path` = line art (`ic_seed_lines`, thickened with a 10-unit stroke). Full seed = paper fill + deep
+  green lines (`PipColors.seedLight/seedDark` via `LocalSeedColors`; app icon colours in `colors.xml`).
 - `res/raw/cue_*.wav`: kalimba plucks from `tools/generate_cues.py` (A5→E6 listening, E6→A5 caught, low muted
   tick missed; peaks -9 dBFS). Haptics in `core/feedback/CuePlayer.kt` (short tap / two soft taps / dull tap).
 - `res/values/strings.xml`: all copy, in the guidelines' voice (caught, pocket, "Writing it down…")
@@ -48,8 +51,9 @@ Applied the user's guidelines with: kalimba cues; capture overlay KEPT (shown ov
 catching, any trigger; tap anywhere / back = finish now, keeps the speech); note = bottom sheet (text first, then
 player), Edit opens a FULL-SCREEN editor; Hey Pip switch, sensitivity and battery saver on a separate Settings page
 (gear in the top bar); the status pill turns Hey Pip on/off. Not built (out of scope): categories + dots, filter chips,
-reminders, Plant / Let go swipes, evening nudge, "Pip caught that" toast, onboarding. User disliked the generated
-seed logo: the shape in `logo.xml` is a plain placeholder; the user is sourcing a real logo.
+reminders, Plant / Let go swipes, evening nudge, "Pip caught that" toast, onboarding. Logo: the user rejected the
+first generated seed, a Flaticon icon (licence forbids logo use) and four drawn marks; chose the Noun Project
+"Sunflower Seed" (CC BY 3.0, attribution in README), filled paper with deep-green lines (option 1).
 
 ## Architecture
 ```
@@ -222,7 +226,7 @@ If the shell can't find Java: `export JAVA_HOME="/Applications/Android Studio.ap
 adb lives in `~/Library/Android/sdk/platform-tools`.
 
 ## Plan
-Order agreed 2026-11-22: edit + delete notes (done) → design pass (done on the emulator; logo pending) →
+Order agreed 2026-11-22: edit + delete notes (done) → design pass (done, incl. logo) →
 release build for daily use.
 
 1. DONE: "Hey Pip" + capture + storage (custom wake word, works on the A32).

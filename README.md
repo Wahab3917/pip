@@ -54,6 +54,12 @@ Your recordings stay in `training/data/`, which is git-ignored.
 | `tools/` | Small helpers, e.g. `generate_cues.py` makes the placeholder cue sounds |
 | `CLAUDE.md` | Architecture, decisions, results and the phase plan |
 
+## Credits
+
+- **Logo:** "Sunflower Seed" by Amethyst Studio from [the Noun Project](https://thenounproject.com), licensed
+  under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Recoloured and filled for Pip.
+- **Fonts:** Newsreader and Instrument Sans, SIL Open Font License (see [`licenses/`](licenses/)).
+
 ## Third-party models and libraries
 
 - openWakeWord v0.5.1 front-end models (Apache-2.0)

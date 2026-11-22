@@ -7,8 +7,9 @@ This is the single source of truth for how Pip looks, sounds, and speaks. It's a
 > **As built (2026-11-22):** applied in the design pass, with these decisions on top: no categories,
 > reminders, filter chips, Plant / Let go or evening nudge (Pip only saves ideas for now; Plant / Let go
 > return with connectors); the note's bottom sheet opens a full-screen editor for editing; Hey Pip's
-> sensitivity and battery setting live on a separate Settings page; the seed shape is a placeholder until
-> the real logo is ready. See CLAUDE.md → "Design pass".
+> sensitivity and battery setting live on a separate Settings page; the logo is "Sunflower Seed" by Amethyst
+> Studio (Noun Project, CC BY 3.0), a paper seed with deep-green lines, instead of the speech-bubble seed below.
+> See CLAUDE.md → "Design pass".
 
 ## Design principles
 

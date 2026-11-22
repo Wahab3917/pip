@@ -23,7 +23,7 @@
             android:layout_height="@dimen/widget_seed"
             android:layout_marginEnd="@dimen/widget_padding"
             android:importantForAccessibility="no"
-            android:src="@drawable/ic_seed"
+            android:src="@drawable/ic_seed_solid"
             android:tint="@color/on_sprout" />
 
         <TextView

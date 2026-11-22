@@ -3,6 +3,7 @@ package one.mindly.pip.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -20,6 +21,10 @@ import androidx.compose.ui.graphics.Color
  * The home-screen widget can't use Compose, so res/values(-night)/colors.xml repeats these.
  */
 object PipColors {
+    /** The seed mark (res/values/logo.xml): a paper-coloured seed drawn in deep green (logo option 1). */
+    val seedLight = SeedColors(fill = Color(0xFFFBF9F4), line = Color(0xFF2A6643))
+    val seedDark = SeedColors(fill = Color(0xFFEDE9E1), line = Color(0xFF2A6643))
+
     private object Light {
         val paper = Color(0xFFF6F3EC)
         val card = Color(0xFFFBF9F4)
@@ -74,3 +79,9 @@ object PipColors {
         )
     }
 }
+
+/** The two colours of the full seed mark: its fill and its lines. */
+data class SeedColors(val fill: Color, val line: Color)
+
+/** Provided by PipTheme (light or dark); read by ui/components/Seed. */
+val LocalSeedColors = staticCompositionLocalOf { PipColors.seedLight }

@@ -13,7 +13,8 @@
     <color name="sprout">#FF3E8E5E</color>
     <color name="on_sprout">#FFFBF9F4</color>
 
-    <!-- App icon: the Paper seed on a Sprout square, in both themes. -->
+    <!-- App icon: the Paper seed with deep-green lines on a Sprout square, in both themes. -->
     <color name="logo_background">#FF3E8E5E</color>
     <color name="logo_seed">#FFF6F3EC</color>
+    <color name="logo_seed_line">#FF2A6643</color>
 </resources>

@@ -73,7 +73,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(PipSpacing.s),
             ) {
-                Seed(size = 16.dp)
+                Seed(size = 16.dp, solid = true)
                 Text(stringResource(R.string.settings_group_listening), style = PipType.dayLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             ListItem(
