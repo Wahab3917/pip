@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Home-screen widget geometry (theme layer). -->
+    <!-- Home-screen widget geometry (theme layer; the widget can't use Compose's PipShapes). -->
     <dimen name="widget_padding">8dp</dimen>
     <dimen name="widget_corner">16dp</dimen>
-    <dimen name="widget_catch_text">18sp</dimen>
-    <dimen name="widget_toggle_text">14sp</dimen>
+    <dimen name="widget_button_corner">12dp</dimen>
+    <dimen name="widget_seed">18dp</dimen>
+    <dimen name="widget_catch_text">16sp</dimen>
+    <dimen name="widget_option_text">13sp</dimen>
 </resources>

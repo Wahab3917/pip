@@ -25,7 +25,17 @@ import one.mindly.pip.service.ListeningService
 import one.mindly.pip.ui.home.HomeScreen
 import one.mindly.pip.ui.home.HomeViewModel
 import one.mindly.pip.ui.home.PermissionState
-import one.mindly.pip.ui.note.NoteScreen
+import one.mindly.pip.ui.note.EditScreen
+import one.mindly.pip.ui.note.NoteSheet
+import one.mindly.pip.ui.settings.SettingsScreen
+import one.mindly.pip.ui.capture.CaptureOverlay
+import one.mindly.pip.ui.theme.PipMotion
+import one.mindly.pip.core.capture.EngineStatus
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import one.mindly.pip.ui.theme.PipTheme
 import java.util.UUID
 
@@ -39,17 +49,23 @@ class MainActivity : ComponentActivity() {
             PipTheme {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 var permissions by remember { mutableStateOf(readPermissions(justAsked = false)) }
-                // Remember that the user flipped the switch, so we can start once they grant the mic.
-                var startWhenGranted by remember { mutableStateOf(false) }
+                // What to do once the user grants the mic: turn on "Hey Pip", or catch a thought.
+                var afterGrant by remember { mutableStateOf<(() -> Unit)?>(null) }
 
                 val launcher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
                 ) {
                     permissions = readPermissions(justAsked = true)
-                    if (startWhenGranted && permissions.micGranted) viewModel.setListening(true)
-                    startWhenGranted = false
+                    if (permissions.micGranted) afterGrant?.invoke()
+                    afterGrant = null
                 }
                 val requestPermissions = { launcher.launch(permissionsToRequest()) }
+                fun withMic(action: () -> Unit) {
+                    if (permissions.micGranted) action() else { afterGrant = action; requestPermissions() }
+                }
+                val setListening = { enabled: Boolean ->
+                    if (enabled) withMic { viewModel.setListening(true) } else viewModel.setListening(false)
+                }
 
                 // Coming back from system Settings: the user may have changed a permission there.
                 LifecycleResumeEffect(Unit) {
@@ -59,51 +75,83 @@ class MainActivity : ComponentActivity() {
                     onPauseOrDispose {}
                 }
 
-                // Two screens, so no navigation library: the open note's id, or null for the home screen.
+                // Few screens, so no navigation library. Where we are: Settings, the editor for a
+                // thought, or the Pocket with (maybe) one thought open in the bottom sheet.
+                var showSettings by rememberSaveable { mutableStateOf(false) }
+                var editingId by rememberSaveable { mutableStateOf<String?>(null) }
                 var openId by rememberSaveable { mutableStateOf<String?>(null) }
-                val open = openId?.let { id ->
-                    viewModel.thought(UUID.fromString(id)).collectAsStateWithLifecycle(null).value
-                }
-                if (open != null) {
-                    val player by viewModel.playerState.collectAsStateWithLifecycle()
-                    NoteScreen(
-                        thought = open,
-                        player = player,
-                        positionMs = viewModel::playbackPositionMs,
-                        onTogglePlay = { viewModel.togglePlayback(open) },
-                        onSeek = { viewModel.seek(open, it) },
-                        onRetry = { viewModel.retryTranscription(open.id) },
-                        onSaveTranscript = { viewModel.editTranscript(open.id, it) },
-                        onDelete = {
-                            viewModel.delete(open)
-                            openId = null
-                        },
-                        onBack = {
-                            viewModel.stopPlayback()
-                            openId = null
-                        },
-                    )
-                    return@PipTheme
+
+                val editing = editingId?.let { viewModel.thought(UUID.fromString(it)).collectAsStateWithLifecycle(null).value }
+                val open = openId?.let { viewModel.thought(UUID.fromString(it)).collectAsStateWithLifecycle(null).value }
+                val closeSheet = {
+                    viewModel.stopPlayback()
+                    openId = null
                 }
 
-                HomeScreen(
-                    state = state,
-                    permissions = permissions,
-                    onListeningChange = { enabled ->
-                        if (enabled && !permissions.micGranted) {
-                            startWhenGranted = true
-                            requestPermissions()
-                        } else {
-                            viewModel.setListening(enabled)
+                when {
+                    showSettings -> SettingsScreen(
+                        settings = state.settings,
+                        engineStatus = state.engineStatus,
+                        showNotificationHint = permissions.micGranted && !permissions.notificationsGranted,
+                        onListeningChange = setListening,
+                        onSensitivityChange = viewModel::setSensitivity,
+                        onPauseInBatterySaverChange = viewModel::setPauseInBatterySaver,
+                        onBack = { showSettings = false },
+                    )
+                    editing != null -> EditScreen(
+                        initialText = editing.transcript.orEmpty(),
+                        onSave = {
+                            viewModel.editTranscript(editing.id, it)
+                            editingId = null
+                        },
+                        onCancel = { editingId = null },
+                    )
+                    else -> {
+                        HomeScreen(
+                            state = state,
+                            permissions = permissions,
+                            onToggleListening = { setListening(!state.settings.listeningEnabled) },
+                            onCatch = { withMic(viewModel::catchNow) },
+                            onOpenSettings = { showSettings = true },
+                            onThoughtClick = { openId = it.id.toString() },
+                            onPlay = viewModel::togglePlayback,
+                            onDeleteThoughts = viewModel::deleteAll,
+                            onRequestMic = requestPermissions,
+                            onOpenAppSettings = ::openAppSettings,
+                        )
+                        if (open != null) {
+                            val player by viewModel.playerState.collectAsStateWithLifecycle()
+                            NoteSheet(
+                                thought = open,
+                                player = player,
+                                positionMs = viewModel::playbackPositionMs,
+                                onTogglePlay = { viewModel.togglePlayback(open) },
+                                onSeek = { viewModel.seek(open, it) },
+                                onRetry = { viewModel.retryTranscription(open.id) },
+                                onEdit = {
+                                    viewModel.stopPlayback()
+                                    editingId = open.id.toString()
+                                },
+                                onDelete = {
+                                    viewModel.delete(open)
+                                    closeSheet()
+                                },
+                                onDismiss = closeSheet,
+                            )
                         }
-                    },
-                    onSensitivityChange = viewModel::setSensitivity,
-                    onPauseInBatterySaverChange = viewModel::setPauseInBatterySaver,
-                    onThoughtClick = { openId = it.id.toString() },
-                    onDeleteThoughts = viewModel::deleteAll,
-                    onRequestMic = requestPermissions,
-                    onOpenSettings = ::openAppSettings,
-                )
+                    }
+                }
+
+                // Over everything while Pip is catching a thought, whatever started it.
+                AnimatedVisibility(
+                    visible = state.engineStatus == EngineStatus.Capturing,
+                    enter = fadeIn(tween(PipMotion.MEDIUM_MS)),
+                    // "Caught: the seed drops into the pocket in about 200 ms."
+                    exit = fadeOut(tween(PipMotion.MEDIUM_MS)) + scaleOut(tween(PipMotion.MEDIUM_MS), targetScale = 0.85f),
+                ) {
+                    val level by viewModel.captureLevel.collectAsStateWithLifecycle()
+                    CaptureOverlay(level = level, onFinish = viewModel::finishCatch)
+                }
             }
         }
     }

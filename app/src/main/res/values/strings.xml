@@ -1,5 +1,9 @@
 <resources>
-    <!-- All user-facing copy lives here. The design pass rewrites wording in this file only. -->
+    <!--
+        All user-facing copy lives here. Voice: "Pip — Design Guidelines" → Voice and copy.
+        Thoughts are caught and wait in your pocket. Confirmations are six words or fewer; no
+        exclamation marks, no emoji, never "AI". Pip calls itself Pip, never "I".
+    -->
     <string name="app_name">Pip</string>
 
     <!-- Notification -->
@@ -16,7 +20,7 @@
     <string name="notif_boot_title">Pip isn\'t listening</string>
     <string name="notif_boot_text">Tap to start listening again after the restart.</string>
 
-    <!-- Engine status (shared by notification and home screen) -->
+    <!-- Engine status (notification and Settings) -->
     <string name="status_off">Off</string>
     <string name="status_starting">Starting…</string>
     <string name="status_listening">Listening for \"Hey Pip\"</string>
@@ -25,21 +29,29 @@
     <string name="status_paused_call">Paused during a call</string>
     <string name="status_paused_mic_busy">Paused: another app is using the mic</string>
     <string name="status_paused_battery_saver">Paused: battery saver is on</string>
-    <string name="status_error">Microphone unavailable, retrying…</string>
+    <string name="status_error">Microphone unavailable, trying again…</string>
 
-    <!-- Home screen -->
-    <string name="home_listening_label">Hey Pip</string>
-    <string name="home_sensitivity_label">Sensitivity</string>
-    <string name="home_sensitivity_strict">Fewer false wakes</string>
-    <string name="home_sensitivity_loose">Hears you more easily</string>
-    <string name="home_sensitivity_detail">wakes above %1$.2f</string>
-    <string name="home_battery_saver_label">Pause in battery saver</string>
-    <string name="home_recordings_header">Caught thoughts</string>
-    <string name="home_recordings_empty">Nothing caught yet. Tap Catch in quick settings or on the widget, or say \"Hey Pip\".</string>
+    <!-- Pocket (home) -->
+    <string name="pocket_title">Pocket</string>
+    <string name="pill_listening">listening</string>
+    <string name="pill_paused">paused</string>
+    <string name="pill_off">off</string>
+    <string name="pill_turn_on">Turn on \"Hey Pip\"</string>
+    <string name="pill_turn_off">Turn off \"Hey Pip\"</string>
+    <string name="settings_open">Settings</string>
+    <string name="seed_catch">Catch a thought</string>
+    <string name="day_today">Today</string>
+    <string name="day_yesterday">Yesterday</string>
+    <string name="home_recordings_empty">Nothing in your pocket. Tap the seed whenever something comes up.</string>
     <string name="thought_duration">%1$d:%2$02d</string>
-    <string name="thought_transcribing">Transcribing…</string>
-    <string name="thought_failed">Couldn\'t transcribe. The recording is safe.</string>
-    <string name="thought_no_words">No words heard. The recording is safe.</string>
+    <string name="thought_transcribing">Writing it down…</string>
+    <string name="thought_failed">Pip couldn\'t write that down. The recording is safe.</string>
+    <string name="thought_no_words">Pip heard no words. The recording is safe.</string>
+    <string name="thought_play">Play the recording</string>
+
+    <!-- Capture overlay (shown while Pip catches a thought and the app is open) -->
+    <string name="capture_listening">Listening…</string>
+    <string name="capture_tap_to_finish">Tap to finish</string>
 
     <!-- Selecting several thoughts in the list (long-press one to start) -->
     <plurals name="home_selected">
@@ -52,24 +64,34 @@
         <item quantity="one">Delete %d thought?</item>
         <item quantity="other">Delete %d thoughts?</item>
     </plurals>
-    <string name="home_delete_text">Their text and recordings are removed from this phone. This can\'t be undone.</string>
+    <string name="home_delete_text">This removes their text and recordings from this phone. It can\'t be undone.</string>
 
-    <!-- Note screen -->
+    <!-- A thought (bottom sheet) and the full-screen editor -->
     <string name="note_back">Back</string>
     <string name="note_play">Play</string>
     <string name="note_pause">Pause</string>
     <string name="note_time">%1$s / %2$s</string>
-    <string name="note_transcribing">Transcribing…</string>
-    <string name="note_failed">Couldn\'t transcribe this one. The recording above is safe.</string>
+    <string name="note_transcribing">Writing it down…</string>
+    <string name="note_failed">Pip couldn\'t write that down. The recording is safe.</string>
     <string name="note_retry">Try again</string>
-    <string name="note_no_words">No words heard. Play the recording above to listen.</string>
+    <string name="note_no_words">Pip heard no words. The recording is safe.</string>
     <string name="note_edit">Edit</string>
     <string name="note_save">Save</string>
     <string name="note_cancel">Cancel</string>
-    <string name="note_transcript_label">Note</string>
+    <string name="note_transcript_label">Your thought</string>
     <string name="note_delete">Delete</string>
     <string name="note_delete_title">Delete this thought?</string>
-    <string name="note_delete_text">The text and the recording are removed from this phone. This can\'t be undone.</string>
+    <string name="note_delete_text">This removes the text and the recording from this phone. It can\'t be undone.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_group_listening">Listening</string>
+    <string name="home_listening_label">Hey Pip</string>
+    <string name="home_sensitivity_label">Sensitivity</string>
+    <string name="home_sensitivity_strict">Fewer false wakes</string>
+    <string name="home_sensitivity_loose">Hears you more easily</string>
+    <string name="home_sensitivity_detail">wakes above %1$.2f</string>
+    <string name="home_battery_saver_label">Pause in battery saver</string>
 
     <!-- Quick-settings tile and home-screen widget -->
     <string name="tile_label">Pip</string>
@@ -81,9 +103,9 @@
     <string name="widget_open">Open</string>
 
     <!-- Permissions -->
-    <string name="perm_mic_needed">Pip needs the microphone to hear \"Hey Pip\". Audio never leaves this phone.</string>
+    <string name="perm_mic_needed">Pip needs the microphone to catch your thoughts. Audio never leaves this phone.</string>
     <string name="perm_mic_grant">Allow microphone</string>
-    <string name="perm_mic_denied_forever">Microphone access was denied. Turn it on in Settings › Permissions.</string>
+    <string name="perm_mic_denied_forever">Microphone access is off. Turn it on in Settings › Permissions.</string>
     <string name="perm_open_settings">Open settings</string>
-    <string name="perm_notifications_hint">Notifications are off, so you won\'t see Pip\'s pause button. Pip still listens.</string>
+    <string name="perm_notifications_hint">Notifications are off, so Pip\'s pause button won\'t show. Pip still listens.</string>
 </resources>

@@ -46,6 +46,9 @@ class AppGraph(context: Context) {
 
     /** Written by ListeningService, read by the UI. Off whenever the service isn't running. */
     val engineStatus = MutableStateFlow<EngineStatus>(EngineStatus.Off)
+
+    /** Voice level 0..1 while a thought is being caught; drives the capture overlay. */
+    val captureLevel = MutableStateFlow(0f)
 }
 
 val Context.appGraph: AppGraph get() = (applicationContext as PipApp).graph

@@ -20,37 +20,50 @@ Test phone: Samsung Galaxy A32 (Android 13, arm64-v8a).
   It never transcribes or calls anything slow.
 - **Local-first.** No network calls except an optional one-time model download. No analytics.
   The manifest deliberately has no INTERNET permission. `allowBackup=false` (no cloud backup).
-- **Function first, design later.** Plain Material 3 defaults. All colors, fonts, shapes,
-  motion, cue sounds and copy go through the theme layer (below). Screens never hard-code them.
+- **Design lives in the theme layer.** The look, sound and voice come from `docs/design-guidelines.md`
+  (the user's own doc). All colors, fonts, shapes, motion, cue sounds and copy go through the theme
+  layer (below). Screens never hard-code them.
 - **Connectors later.** The core must not depend on any integration. Only keep the seam
   open: a stable UUID per thought and a `PLANTED` state. Don't build connector code.
 
-## Theme layer (the only files the design pass should need to touch)
-- `ui/theme/PipColors.kt`: color schemes (M3 baseline; dynamic color deliberately off)
-- `ui/theme/PipType.kt`: typography
-- `ui/theme/PipShapes.kt`: shapes + `PipSpacing` (layout dimensions)
-- `ui/theme/PipMotion.kt`: animation timings
-- `res/raw/cue_listening.wav`, `cue_caught.wav`, `cue_missed.wav`: placeholder tones made
-  by `tools/generate_cues.py` (`python3 tools/generate_cues.py` to regenerate)
-- `res/values/strings.xml`: all copy
-- `res/values/colors.xml` + `dimens.xml`, `res/layout/widget_pip.xml`, `res/drawable/widget_*.xml`: the
-  home-screen widget (RemoteViews can't use Compose, so it has its own colors and sizes)
-- `res/drawable/ic_back|ic_play|ic_pause.xml`: Material icons (tinted by the theme), `ic_stat_pip.xml`:
-  notification and tile icon
-- Also design-adjacent: haptic patterns + the `HAPTICS_ALWAYS` flag in `core/feedback/CuePlayer.kt`
-  (they live in core because the UI-less service plays them).
+## Theme layer (applied from `docs/design-guidelines.md`, 2026-11-22)
+- `ui/theme/PipColors.kt`: the guideline tokens (Paper, Card, Ink, Graphite, Hairline, Sprout, Amber, Clay) mapped
+  onto M3 roles, light + warm-charcoal dark; dynamic color off
+- `ui/theme/PipType.kt` + `res/font/`: Instrument Sans for the interface (`MaterialTheme.typography`), Newsreader
+  for the user's words (`PipType.thought` 19sp / `thoughtLarge`), `PipType.meta` (12sp, tabular), wordmark, day label.
+  Variable fonts, bundled (OFL, see `/licenses`)
+- `ui/theme/PipShapes.kt`: 16dp cards, hairline width, `PipSpacing` (8dp grid, seed button, overlay sizes)
+- `ui/theme/PipMotion.kt`: ~200 ms fades/slides, seed breath amount, shimmer speed
+- `res/values/logo.xml`: THE SEED path (placeholder until the real logo). Every icon reads it: `ic_seed`,
+  `ic_stat_pip` (notification + tile), `ic_launcher_foreground` (adaptive + monochrome icon). One shape, 24×24.
+- `res/raw/cue_*.wav`: kalimba plucks from `tools/generate_cues.py` (A5→E6 listening, E6→A5 caught, low muted
+  tick missed; peaks -9 dBFS). Haptics in `core/feedback/CuePlayer.kt` (short tap / two soft taps / dull tap).
+- `res/values/strings.xml`: all copy, in the guidelines' voice (caught, pocket, "Writing it down…")
+- `res/values(-night)/colors.xml`, `dimens.xml`, `layout/widget_pip.xml`, `drawable/widget_*`: the widget and app
+  icon colors (RemoteViews can't use Compose); `res/values/themes.xml`: Paper window background (DayNight)
+- `res/drawable/ic_*.xml`: Material icons, tinted by the theme
+
+### Design pass decisions (user, 2026-11-22)
+Applied the user's guidelines with: kalimba cues; capture overlay KEPT (shown over the app whenever Pip is
+catching, any trigger; tap anywhere / back = finish now, keeps the speech); note = bottom sheet (text first, then
+player), Edit opens a FULL-SCREEN editor; Hey Pip switch, sensitivity and battery saver on a separate Settings page
+(gear in the top bar); the status pill turns Hey Pip on/off. Not built (out of scope): categories + dots, filter chips,
+reminders, Plant / Let go swipes, evening nudge, "Pip caught that" toast, onboarding. User disliked the generated
+seed logo: the shape in `logo.xml` is a plain placeholder; the user is sourcing a real logo.
 
 ## Architecture
 ```
 one.mindly.pip
 ├── PipApp.kt              Application; builds AppGraph (manual DI: settings, DB, processor, repository, engine status);
 │                          starts leftover transcriptions; keeps the widget label in step with the setting
-├── MainActivity.kt        permissions (RECORD_AUDIO, POST_NOTIFICATIONS); shows HomeScreen or NoteScreen
+├── MainActivity.kt        permissions; shows Settings, the full-screen editor, or the Pocket (+ NoteSheet);
+│                          the CaptureOverlay on top while the engine is Capturing
 ├── core/                  NO Android UI imports
 │   ├── audio/             Microphone (AudioRecord 16 kHz mono PCM16), WavFile (write + read), PreRollBuffer, ThoughtPlayer (play/pause/seek)
 │   ├── wakeword/          WakeWordDetector (our own "Hey Pip" model on onnxruntime), WakeWordTuning (sensitivity → threshold)
 │   ├── vad/               SpeechDetector (sherpa-onnx silero VAD)
-│   ├── capture/           ListeningEngine (the loop + requestCatch), CaptureSession (pure, unit-tested rules), EngineStatus
+│   ├── capture/           ListeningEngine (the loop + requestCatch / requestFinish, publishes the voice level),
+│   │                      CaptureSession (pure, unit-tested rules), EngineStatus
 │   ├── feedback/          CuePlayer (SoundPool on notification volume + haptics)
 │   ├── storage/           Room: Thought entity, ThoughtDao, PipDatabase, Converters, ThoughtRepository
 │   ├── processing/        ThoughtProcessor seam → WorkManagerProcessor; TranscriptionWorker
@@ -58,7 +71,8 @@ one.mindly.pip
 │   └── settings/          PipSettings (SharedPreferences mirrored into a StateFlow)
 ├── service/               Android glue: ListeningService (foreground, type=microphone), BootReceiver
 ├── quick/                 CatchTileService ("Pip" tile in quick settings), PipWidget (home screen: Catch, Hey Pip on/off, Open), QuickActionActivity (invisible trampoline)
-└── ui/                    StatusText, home/ (HomeScreen + HomeViewModel), note/ (NoteScreen), theme/
+└── ui/                    StatusText, components/ (Seed, Wordmark), home/ (Pocket: HomeScreen + HomeViewModel),
+                           note/ (NoteSheet, EditScreen, AudioBar), capture/ (CaptureOverlay), settings/, theme/
 ```
 
 ### Capture flow
@@ -103,9 +117,10 @@ READY with the text, or FAILED (note screen has "Try again"). On start the job p
 CAUGHT (a crash mid-job); `PipApp` also starts the job on every launch, so old Phase-1 notes get transcribed.
 One job at a time = one copy of the model in memory. Threads: min(cores, 4).
 
-### Edit and delete (note screen)
+### Edit and delete (note sheet)
 Edit (pencil) is offered only when the status is READY or FAILED, so the job can't overwrite the user's words;
-saving sets the text and status READY (`editTranscript`, trimmed). Back while editing cancels the edit.
+it opens the full-screen EditScreen; Save sets the text and status READY (`editTranscript`, trimmed); ✕/back
+discards and returns to the sheet.
 Delete (bin, with a confirm dialog) is a real delete: Room row first (leaves the list at once), then the WAV.
 `state = LET_GO` is not used for this. Bulk delete: long-press a row in the list to start selecting (checkboxes,
 "N selected", Select all, bin with confirm; back/✕ stops) → `deleteAll`. `NoteEditingTest` (androidTest) covers
@@ -207,7 +222,8 @@ If the shell can't find Java: `export JAVA_HOME="/Applications/Android Studio.ap
 adb lives in `~/Library/Android/sdk/platform-tools`.
 
 ## Plan
-Order agreed 2026-11-22: edit + delete notes (done) → design pass → release build for daily use.
+Order agreed 2026-11-22: edit + delete notes (done) → design pass (done on the emulator; logo pending) →
+release build for daily use.
 
 1. DONE: "Hey Pip" + capture + storage (custom wake word, works on the A32).
 2. DONE and confirmed on the A32 (2026-11-22; tile works from the lock screen, transcripts good, ~3 s per

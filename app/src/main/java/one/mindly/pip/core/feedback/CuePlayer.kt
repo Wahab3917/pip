@@ -12,7 +12,7 @@ import one.mindly.pip.R
 enum class Cue { LISTENING, CAUGHT, MISSED }
 
 /**
- * Plays Pip's audio + haptic cues. Sounds are preloaded into a SoundPool so they start in a
+ * Plays Pip's audio + haptic cues (res/raw/cue_*.wav: soft kalimba plucks, made by tools/generate_cues.py). Sounds are preloaded into a SoundPool so they start in a
  * few milliseconds (the spec asks for under 300 ms from wake word to cue).
  *
  * Rule from the spec: sounds use the NOTIFICATION volume; haptics are used only when the
@@ -52,19 +52,21 @@ class CuePlayer(context: Context) {
 
     fun release() = soundPool.release()
 
+    /** Source: "Pip — Design Guidelines" → Sound and haptics. */
     private fun hapticFor(cue: Cue): VibrationEffect = when (cue) {
-        // One short tick: "I'm listening".
-        Cue.LISTENING -> VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE)
-        // Two soft taps: "caught it". (timings: wait, buzz, wait, buzz; amplitudes 0–255)
+        // One short tap: "go ahead".
+        Cue.LISTENING -> VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE)
+        // Two soft taps: "got it". (timings: wait, buzz, wait, buzz; amplitudes 0–255)
         Cue.CAUGHT -> VibrationEffect.createWaveform(
-            longArrayOf(0, 30, 90, 30), intArrayOf(0, SOFT, 0, SOFT), -1
+            longArrayOf(0, 25, 90, 25), intArrayOf(0, SOFT, 0, SOFT), -1
         )
-        // One longer, weak buzz: "missed".
-        Cue.MISSED -> VibrationEffect.createOneShot(180, SOFT)
+        // One dull tap: "didn't catch that".
+        Cue.MISSED -> VibrationEffect.createOneShot(60, DULL)
     }
 
     private companion object {
         const val HAPTICS_ALWAYS = false
         const val SOFT = 90
+        const val DULL = 50
     }
 }

@@ -89,7 +89,10 @@ class ListeningService : Service() {
         }
 
         val engine = engine ?: startEngine()
-        if (intent?.action == ACTION_CATCH) engine.requestCatch()
+        when (intent?.action) {
+            ACTION_CATCH -> engine.requestCatch()
+            ACTION_FINISH -> engine.requestFinish()
+        }
         // START_STICKY: if Android kills us for memory, it recreates the service later.
         return START_STICKY
     }
@@ -101,6 +104,7 @@ class ListeningService : Service() {
             settings = graph.settings,
             cues = cues,
             status = graph.engineStatus,
+            level = graph.captureLevel,
             saveThought = { pcm -> graph.repository.saveCaught(pcm, Microphone.SAMPLE_RATE) },
         )
         this.engine = engine
@@ -188,6 +192,7 @@ class ListeningService : Service() {
         private const val ACTION_PAUSE_HOUR = "one.mindly.pip.PAUSE_HOUR"
         private const val ACTION_RESUME = "one.mindly.pip.RESUME"
         private const val ACTION_CATCH = "one.mindly.pip.CATCH"
+        private const val ACTION_FINISH = "one.mindly.pip.FINISH"
         private const val ONE_HOUR_MS = 60 * 60 * 1000L
 
         fun start(context: Context) {
@@ -201,6 +206,11 @@ class ListeningService : Service() {
          */
         fun catchNow(context: Context) {
             context.startForegroundService(Intent(context, ListeningService::class.java).setAction(ACTION_CATCH))
+        }
+
+        /** "Tap to finish" in the capture overlay: end the note now and save what was said. */
+        fun finishCatch(context: Context) {
+            context.startService(Intent(context, ListeningService::class.java).setAction(ACTION_FINISH))
         }
 
         fun stop(context: Context) {

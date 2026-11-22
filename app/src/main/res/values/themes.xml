@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.Pip" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The window behind Compose: Paper from the first frame, light or dark with the system. -->
+    <style name="Theme.Pip" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
 
     <!-- QuickActionActivity: fully transparent, no animation, so the user never sees it. -->
     <style name="Theme.Pip.Invisible" parent="android:Theme.Translucent.NoTitleBar">

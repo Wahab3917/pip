@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        THE SEED: Pip's mark, drawn once and used everywhere (seed button, wordmark dot, widget,
+        quick-settings tile, notification, app icon). It is a PLACEHOLDER until the real logo
+        arrives: replace this path (24 x 24 viewport, one shape, filled) and every icon follows.
+    -->
+    <string name="seed_path" translatable="false">M12,2.75C16.6,5.3 18.75,9.2 18.75,13.1C18.75,17.6 15.75,21.25 12,21.25C8.25,21.25 5.25,17.6 5.25,13.1C5.25,9.2 7.4,5.3 12,2.75Z</string>
+</resources>

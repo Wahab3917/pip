@@ -39,8 +39,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         HomeUiState(graph.settings.values.value, graph.engineStatus.value, emptyList()),
     )
 
-    /** The note screen's player (shared, so leaving a note can stop it). */
+    /** The note sheet's player (shared, so closing a note can stop it). */
     val playerState: StateFlow<ThoughtPlayer.State> = player.state
+
+    /** Voice level while catching, for the capture overlay. */
+    val captureLevel: StateFlow<Float> = graph.captureLevel
+
+    /** The seed button. Call only once RECORD_AUDIO is granted; we're in the foreground, so the mic is allowed. */
+    fun catchNow() = ListeningService.catchNow(getApplication())
+
+    /** "Tap to finish" in the capture overlay. */
+    fun finishCatch() = ListeningService.finishCatch(getApplication())
 
     /** Call only once RECORD_AUDIO is granted (MainActivity takes care of that). */
     fun setListening(enabled: Boolean) {

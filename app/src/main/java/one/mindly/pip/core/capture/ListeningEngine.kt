@@ -31,6 +31,8 @@ import one.mindly.pip.core.vad.SpeechDetector
 import one.mindly.pip.core.wakeword.WakeWordDetector
 import one.mindly.pip.core.wakeword.WakeWordTuning
 import java.io.File
+import kotlin.math.log10
+import kotlin.math.sqrt
 
 /**
  * The capture path: trigger → record until silence → save. Deliberately dumb:
@@ -53,6 +55,8 @@ class ListeningEngine(
     private val cues: CuePlayer,
     /** Where engine status is published (read by the notification and the home screen). */
     private val status: MutableStateFlow<EngineStatus>,
+    /** Voice level 0..1 while capturing (0 otherwise), for the capture overlay's breathing seed. */
+    private val level: MutableStateFlow<Float>,
     /** Persists a finished recording. Throwing means "not saved". */
     private val saveThought: suspend (pcm: ShortArray) -> Unit,
 ) {
@@ -65,6 +69,14 @@ class ListeningEngine(
 
     /** Set by [requestCatch], cleared when the capture starts. */
     private val catchRequested = MutableStateFlow(false)
+
+    /** Set by [requestFinish] ("Tap to finish"), checked once per chunk while capturing. */
+    @Volatile private var finishRequested = false
+
+    /** End the current capture now, keeping what was said (as if the 2 s of silence had passed). */
+    fun requestFinish() {
+        finishRequested = true
+    }
 
     /**
      * Start a capture now, without the wake word. Safe to call from any thread.
@@ -207,6 +219,7 @@ class ListeningEngine(
     /** Records from the open [mic] until CaptureSession decides it's caught or missed. */
     private suspend fun capture(mic: Microphone, preRoll: ShortArray) {
         catchRequested.value = false
+        finishRequested = false
         status.value = EngineStatus.Capturing
         cues.play(Cue.LISTENING)
         speech.reset()
@@ -219,9 +232,12 @@ class ListeningEngine(
                 val read = mic.read(buffer)
                 if (read <= 0) break
                 val pcm = buffer.copyOf(read)
+                level.value = voiceLevel(pcm)
                 outcome = session.onChunk(pcm, speech.isSpeech(pcm.toFloatSamples()))
+                if (finishRequested && outcome == CaptureSession.Outcome.Continue) break
             }
         } finally {
+            level.value = 0f
             // Interrupted (mic error or service stopping)? Keep whatever speech we got.
             if (outcome == CaptureSession.Outcome.Continue) outcome = session.finishEarly()
             // NonCancellable: even if the service is stopping, finish saving first.
@@ -245,6 +261,19 @@ class ListeningEngine(
             }
             CaptureSession.Outcome.Continue -> Unit
         }
+    }
+
+    /**
+     * How loud this chunk is, 0..1, for the overlay only: RMS level mapped from -55 dBFS (quiet
+     * room) to -15 dBFS (speaking close to the phone).
+     */
+    private fun voiceLevel(pcm: ShortArray): Float {
+        if (pcm.isEmpty()) return 0f
+        var sum = 0.0
+        for (s in pcm) sum += s.toDouble() * s
+        val rms = sqrt(sum / pcm.size) / 32768.0
+        val db = if (rms > 0) 20 * log10(rms) else -100.0
+        return ((db + 55) / 40).toFloat().coerceIn(0f, 1f)
     }
 
     /** Returns why we should not be listening right now, or null if we should. */

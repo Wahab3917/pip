@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Home-screen widget colors (theme layer: the widget can't use Compose's PipColors). -->
-    <color name="widget_background">#F2FFFFFF</color>
-    <color name="widget_on_background">#FF1D1B20</color>
-    <color name="widget_button">#FF6750A4</color>
-    <color name="widget_on_button">#FFFFFFFF</color>
+    <!--
+        Colors for the parts Compose can't draw: the home-screen widget and the app icon.
+        Same tokens as ui/theme/PipColors.kt ("Pip — Design Guidelines" → Color); dark values in
+        values-night/colors.xml.
+    -->
+    <color name="paper">#FFF6F3EC</color>
+    <color name="card">#FFFBF9F4</color>
+    <color name="ink">#FF1D1C1A</color>
+    <color name="graphite">#FF6B6760</color>
+    <color name="hairline">#FFE4DFD5</color>
+    <color name="sprout">#FF3E8E5E</color>
+    <color name="on_sprout">#FFFBF9F4</color>
+
+    <!-- App icon: the Paper seed on a Sprout square, in both themes. -->
+    <color name="logo_background">#FF3E8E5E</color>
+    <color name="logo_seed">#FFF6F3EC</color>
 </resources>

@@ -1,58 +1,80 @@
 package one.mindly.pip.ui.home
 
+import android.text.format.DateFormat
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import one.mindly.pip.R
 import one.mindly.pip.core.capture.EngineStatus
 import one.mindly.pip.core.settings.PipSettings
 import one.mindly.pip.core.storage.Thought
 import one.mindly.pip.core.storage.ThoughtStatus
-import one.mindly.pip.core.wakeword.WakeWordTuning
-import one.mindly.pip.ui.statusText
+import one.mindly.pip.ui.components.Seed
+import one.mindly.pip.ui.components.Wordmark
 import one.mindly.pip.ui.theme.PipMotion
 import one.mindly.pip.ui.theme.PipSpacing
 import one.mindly.pip.ui.theme.PipTheme
+import one.mindly.pip.ui.theme.PipType
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Date
 import java.util.UUID
 
 /** Permission facts the screen needs; MainActivity owns the actual permission requests. */
@@ -63,29 +85,32 @@ data class PermissionState(
 )
 
 /**
- * Home screen: the "Hey Pip" switch and its sensitivity, and the list of caught thoughts.
- * Tapping a thought opens it (NoteScreen). Long-pressing one starts selecting, for deleting
- * several at once; back (or ✕) stops selecting.
- * Stateless apart from the selection, which only matters on this screen: it draws [state]
- * and reports taps through callbacks, which makes it easy to preview and, later, to restyle.
+ * The Pocket: every caught thought, newest first, grouped by day ("Pip — Design Guidelines" →
+ * Screen layouts). Top bar: the wordmark, a status pill that turns "Hey Pip" on and off, and
+ * Settings. The seed button at the bottom catches a thought.
+ *
+ * Tapping a thought opens it (MainActivity shows the NoteSheet). Long-pressing one starts
+ * selecting, for deleting several at once; back (or ✕) stops selecting.
+ * Stateless apart from the selection: it draws [state] and reports taps through callbacks.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     state: HomeUiState,
     permissions: PermissionState,
-    onListeningChange: (Boolean) -> Unit,
-    onSensitivityChange: (Float) -> Unit,
-    onPauseInBatterySaverChange: (Boolean) -> Unit,
+    onToggleListening: () -> Unit,
+    onCatch: () -> Unit,
+    onOpenSettings: () -> Unit,
     onThoughtClick: (Thought) -> Unit,
+    onPlay: (Thought) -> Unit,
     onDeleteThoughts: (List<Thought>) -> Unit,
     onRequestMic: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenAppSettings: () -> Unit,
 ) {
     // Ids (as strings, so they survive rotation) of the selected thoughts; selecting while non-empty.
     var selectedIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    // Thoughts deleted elsewhere (e.g. on the note screen) drop out of the selection by themselves.
+    // Thoughts deleted elsewhere (e.g. in the sheet) drop out of the selection by themselves.
     val selected = state.thoughts.filter { it.id.toString() in selectedIds }
     val selecting = selected.isNotEmpty()
     fun toggle(thought: Thought) {
@@ -116,209 +141,265 @@ fun HomeScreen(
                     },
                 )
             } else {
-                TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+                TopAppBar(
+                    title = { Wordmark() },
+                    actions = {
+                        StatusPill(state.settings.listeningEnabled, state.engineStatus, onToggleListening)
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_open))
+                        }
+                    },
+                )
             }
         },
     ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding() + PipSpacing.s,
-                bottom = padding.calculateBottomPadding() + PipSpacing.l,
-                start = PipSpacing.m,
-                end = PipSpacing.m,
-            ),
-            verticalArrangement = Arrangement.spacedBy(PipSpacing.m),
-        ) {
-            if (!permissions.micGranted) {
-                item { MicPermissionCard(permissions.micPermanentlyDenied, onRequestMic, onOpenSettings) }
-            }
-            item {
-                ListeningCard(
-                    state = state,
-                    showNotificationHint = permissions.micGranted && !permissions.notificationsGranted,
-                    onListeningChange = onListeningChange,
-                    onSensitivityChange = onSensitivityChange,
-                    onPauseInBatterySaverChange = onPauseInBatterySaverChange,
-                )
-            }
-            item {
-                Text(
-                    stringResource(R.string.home_recordings_header),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = PipSpacing.s),
-                )
-            }
-            if (state.thoughts.isEmpty()) {
-                item {
-                    Text(
-                        stringResource(R.string.home_recordings_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = PipSpacing.m, end = PipSpacing.m, top = PipSpacing.s,
+                    bottom = padding.calculateBottomPadding() + PipSpacing.listBottomForSeed,
+                ),
+                verticalArrangement = Arrangement.spacedBy(PipSpacing.s),
+            ) {
+                if (!permissions.micGranted) {
+                    item { MicPermissionCard(permissions.micPermanentlyDenied, onRequestMic, onOpenAppSettings) }
+                }
+                if (state.thoughts.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.home_recordings_empty),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = PipSpacing.l),
+                        )
+                    }
+                }
+                for ((day, thoughts) in groupByDay(state.thoughts)) {
+                    item(key = "day-$day") {
+                        Text(
+                            dayLabel(day),
+                            style = PipType.dayLabel,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = PipSpacing.s, bottom = PipSpacing.xs).animateItem(),
+                        )
+                    }
+                    items(thoughts, key = { it.id }) { thought ->
+                        ThoughtCard(
+                            thought,
+                            selected = if (selecting) thought.id.toString() in selectedIds else null,
+                            onClick = { if (selecting) toggle(thought) else onThoughtClick(thought) },
+                            onLongClick = { toggle(thought) },
+                            onPlay = { onPlay(thought) },
+                            modifier = Modifier.animateItem(placementSpec = PipMotion.listItemPlacement),
+                        )
+                    }
                 }
             }
-            items(state.thoughts, key = { it.id }) { thought ->
-                Column(Modifier.animateItem(placementSpec = PipMotion.listItemPlacement)) {
-                    val isSelected = thought.id.toString() in selectedIds
-                    ThoughtRow(
-                        thought,
-                        selected = if (selecting) isSelected else null,
-                        onClick = { if (selecting) toggle(thought) else onThoughtClick(thought) },
-                        onLongClick = { toggle(thought) },
-                    )
-                    HorizontalDivider()
-                }
+
+            AnimatedVisibility(
+                visible = !selecting,
+                enter = fadeIn(tween(PipMotion.MEDIUM_MS)),
+                exit = fadeOut(tween(PipMotion.MEDIUM_MS)),
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = PipSpacing.l),
+            ) {
+                SeedButton(onClick = onCatch)
             }
         }
     }
 
     if (confirmDelete) {
-        DeleteSelectedDialog(
-            count = selected.size,
-            onConfirm = {
-                onDeleteThoughts(selected)
-                selectedIds = emptySet()
-                confirmDelete = false
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(pluralStringResource(R.plurals.home_delete_title, selected.size, selected.size)) },
+            text = { Text(stringResource(R.string.home_delete_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteThoughts(selected)
+                    selectedIds = emptySet()
+                    confirmDelete = false
+                }) { Text(stringResource(R.string.note_delete)) }
             },
-            onDismiss = { confirmDelete = false },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.note_cancel)) } },
         )
     }
 }
 
+/** Sprout dot + "listening", or Graphite + "paused" / "off". Tapping it turns "Hey Pip" on or off. */
 @Composable
-private fun DeleteSelectedDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(pluralStringResource(R.plurals.home_delete_title, count, count)) },
-        text = { Text(stringResource(R.string.home_delete_text)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.note_delete)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.note_cancel)) } },
+private fun StatusPill(enabled: Boolean, status: EngineStatus, onClick: () -> Unit) {
+    val listening = enabled && status != EngineStatus.Off && status !is EngineStatus.Paused && status != EngineStatus.MicUnavailable
+    val word = when {
+        !enabled -> R.string.pill_off
+        listening -> R.string.pill_listening
+        else -> R.string.pill_paused
+    }
+    val action = stringResource(if (enabled) R.string.pill_turn_off else R.string.pill_turn_on)
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(PipSpacing.hairline, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.semantics { contentDescription = action },
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                Modifier.size(8.dp).clip(CircleShape).background(
+                    if (listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+            Text(stringResource(word), style = PipType.meta, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+/**
+ * A thought: its text in the serif, up to 3 lines, then the time and length. Before there's
+ * text, a shimmer and "Writing it down…" (or what went wrong) with a play button, so the
+ * recording is always one tap away. [selected] is null outside selection mode.
+ */
+@Composable
+private fun ThoughtCard(
+    thought: Thought,
+    selected: Boolean?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
+    val text = thought.transcript?.takeIf { thought.status == ThoughtStatus.READY && it.isNotBlank() }
+    val seconds = (thought.durationMs / 1000).toInt()
+    val meta = DateFormat.getTimeFormat(context).format(Date(thought.createdAt.toEpochMilli())) +
+        " · " + stringResource(R.string.thought_duration, seconds / 60, seconds % 60)
+
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (selected == true) colors.primaryContainer else colors.surfaceContainer)
+            .border(PipSpacing.hairline, if (selected == true) colors.primary else colors.outlineVariant, shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(start = PipSpacing.m, end = PipSpacing.s, top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PipSpacing.s),
+    ) {
+        if (selected != null) Checkbox(checked = selected, onCheckedChange = { onClick() })
+        Column(Modifier.weight(1f).padding(end = PipSpacing.s), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            when {
+                text != null -> Text(text, style = PipType.thought, color = colors.onSurface, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                thought.status == ThoughtStatus.CAUGHT || thought.status == ThoughtStatus.TRANSCRIBING -> Shimmer()
+                else -> Text(
+                    stringResource(if (thought.status == ThoughtStatus.FAILED) R.string.thought_failed else R.string.thought_no_words),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            Text(
+                if (thought.status == ThoughtStatus.CAUGHT || thought.status == ThoughtStatus.TRANSCRIBING) {
+                    stringResource(R.string.thought_transcribing) + " · " + meta
+                } else {
+                    meta
+                },
+                style = PipType.meta,
+                color = colors.onSurfaceVariant,
+            )
+        }
+        if (text == null && selected == null) {
+            IconButton(onClick = onPlay) {
+                Icon(painterResource(R.drawable.ic_play), stringResource(R.string.thought_play), tint = colors.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** A soft bar of light sweeping across while the thought is being written down. */
+@Composable
+private fun Shimmer() {
+    val colors = MaterialTheme.colorScheme
+    val shift by rememberInfiniteTransition(label = "shimmer").animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(PipMotion.shimmerMs, easing = LinearEasing), RepeatMode.Restart),
+        label = "shift",
     )
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(10.dp)
+            .clip(CircleShape)
+            .background(
+                Brush.linearGradient(
+                    0f to colors.outlineVariant,
+                    shift to colors.primaryContainer,
+                    1f to colors.outlineVariant,
+                )
+            )
+    )
+}
+
+/** The seed in a soft Sprout circle: catches a thought (the capture overlay then takes over). */
+@Composable
+private fun SeedButton(onClick: () -> Unit) {
+    val label = stringResource(R.string.seed_catch)
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.size(PipSpacing.seedButton).semantics { contentDescription = label },
+    ) {
+        Box(contentAlignment = Alignment.Center) { Seed(size = PipSpacing.seedIcon) }
+    }
 }
 
 @Composable
 private fun MicPermissionCard(permanentlyDenied: Boolean, onRequest: () -> Unit, onOpenSettings: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(PipSpacing.m), verticalArrangement = Arrangement.spacedBy(PipSpacing.s)) {
-            Text(
-                stringResource(if (permanentlyDenied) R.string.perm_mic_denied_forever else R.string.perm_mic_needed),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (permanentlyDenied) {
-                Button(onClick = onOpenSettings) { Text(stringResource(R.string.perm_open_settings)) }
-            } else {
-                Button(onClick = onRequest) { Text(stringResource(R.string.perm_mic_grant)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ListeningCard(
-    state: HomeUiState,
-    showNotificationHint: Boolean,
-    onListeningChange: (Boolean) -> Unit,
-    onSensitivityChange: (Float) -> Unit,
-    onPauseInBatterySaverChange: (Boolean) -> Unit,
-) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(PipSpacing.m), verticalArrangement = Arrangement.spacedBy(PipSpacing.s)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.home_listening_label), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        stringResource(state.engineStatus.statusText()),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = state.settings.listeningEnabled, onCheckedChange = onListeningChange)
-            }
-            if (showNotificationHint) {
-                Text(
-                    stringResource(R.string.perm_notifications_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            SensitivitySlider(state.settings.sensitivity, onSensitivityChange)
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.home_battery_saver_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(checked = state.settings.pauseInBatterySaver, onCheckedChange = onPauseInBatterySaverChange)
-            }
-        }
-    }
-}
-
-/**
- * The slider moves freely while dragging but only saves when released, because every saved
- * change makes the service reload the wake-word model.
- */
-@Composable
-private fun SensitivitySlider(saved: Float, onChange: (Float) -> Unit) {
-    var dragging by remember(saved) { mutableFloatStateOf(saved) }
-    val threshold = WakeWordTuning.thresholdFor(dragging)
-    Column {
-        Text(stringResource(R.string.home_sensitivity_label), style = MaterialTheme.typography.titleSmall)
-        Slider(value = dragging, onValueChange = { dragging = it }, onValueChangeFinished = { onChange(dragging) })
-        Row {
-            Text(
-                stringResource(R.string.home_sensitivity_strict),
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.weight(1f),
-            )
-            Text(stringResource(R.string.home_sensitivity_loose), style = MaterialTheme.typography.labelSmall)
-        }
+    val shape = MaterialTheme.shapes.medium
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(PipSpacing.hairline, MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(PipSpacing.m),
+        verticalArrangement = Arrangement.spacedBy(PipSpacing.s),
+    ) {
         Text(
-            stringResource(R.string.home_sensitivity_detail, threshold),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(if (permanentlyDenied) R.string.perm_mic_denied_forever else R.string.perm_mic_needed),
+            style = MaterialTheme.typography.bodyLarge,
         )
+        if (permanentlyDenied) {
+            Button(onClick = onOpenSettings) { Text(stringResource(R.string.perm_open_settings)) }
+        } else {
+            Button(onClick = onRequest) { Text(stringResource(R.string.perm_mic_grant)) }
+        }
     }
 }
 
-/**
- * The note's text (or where its transcript is at), then when it was caught and how long it is.
- * [selected] is null outside selection mode; otherwise a checkbox shows it.
- */
-@Composable
-private fun ThoughtRow(thought: Thought, selected: Boolean?, onClick: () -> Unit, onLongClick: () -> Unit) {
-    val context = LocalContext.current
-    val seconds = (thought.durationMs / 1000).toInt()
-    val text = thought.transcript?.takeIf { thought.status == ThoughtStatus.READY && it.isNotBlank() }
-    ListItem(
-        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        leadingContent = selected?.let { { Checkbox(checked = it, onCheckedChange = { onClick() }) } },
-        headlineContent = {
-            Text(
-                text ?: stringResource(thought.status.placeholder()),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = if (text != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        supportingContent = {
-            Text(
-                DateUtils.formatDateTime(
-                    context, thought.createdAt.toEpochMilli(),
-                    DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
-                ) + " · " + stringResource(R.string.thought_duration, seconds / 60, seconds % 60)
-            )
-        },
-    )
+/** Consecutive thoughts from the same calendar day, newest day first (the list is already newest first). */
+private fun groupByDay(thoughts: List<Thought>): List<Pair<LocalDate, List<Thought>>> {
+    val zone = ZoneId.systemDefault()
+    return thoughts.groupBy { it.createdAt.atZone(zone).toLocalDate() }.toList()
 }
 
-/** Shown instead of the text when there's no transcript (yet). */
-private fun ThoughtStatus.placeholder(): Int = when (this) {
-    ThoughtStatus.CAUGHT, ThoughtStatus.TRANSCRIBING -> R.string.thought_transcribing
-    ThoughtStatus.FAILED -> R.string.thought_failed
-    ThoughtStatus.READY -> R.string.thought_no_words
+/** "Today", "Yesterday", then "Mon, 17 Nov" (with the year once it's not this year). */
+@Composable
+private fun dayLabel(day: LocalDate): String {
+    val today = LocalDate.now()
+    return when (day) {
+        today -> stringResource(R.string.day_today)
+        today.minusDays(1) -> stringResource(R.string.day_yesterday)
+        else -> {
+            val millis = day.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            var flags = DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_ALL
+            if (day.year != today.year) flags = flags or DateUtils.FORMAT_SHOW_YEAR
+            DateUtils.formatDateTime(LocalContext.current, millis, flags)
+        }
+    }
 }
 
 @Preview(showBackground = true)
@@ -327,19 +408,24 @@ private fun HomeScreenPreview() {
     PipTheme {
         HomeScreen(
             state = HomeUiState(
-                settings = PipSettings.Values(true, 0.5f, 0L, false),
-                engineStatus = EngineStatus.Listening,
+                settings = PipSettings.Values(false, 0.15f, 0L, false),
+                engineStatus = EngineStatus.Off,
                 thoughts = listOf(
-                    Thought(UUID.randomUUID(), Instant.now(), "thoughts/a.wav", 7_400),
+                    Thought(UUID.randomUUID(), Instant.now(), "thoughts/a.wav", 4_200),
                     Thought(
-                        UUID.randomUUID(), Instant.now().minusSeconds(3600), "thoughts/b.wav", 63_000,
-                        transcript = "Buy oat milk, eggs, and a new phone charger.", status = ThoughtStatus.READY,
+                        UUID.randomUUID(), Instant.now().minusSeconds(3600), "thoughts/b.wav", 7_000,
+                        transcript = "Idea for the app: let people pin their favourite thoughts to the top.",
+                        status = ThoughtStatus.READY,
+                    ),
+                    Thought(
+                        UUID.randomUUID(), Instant.now().minusSeconds(90_000), "thoughts/c.wav", 5_000,
+                        transcript = "Book recommendation from Ali: Thinking, Fast and Slow.", status = ThoughtStatus.READY,
                     ),
                 ),
             ),
             permissions = PermissionState(micGranted = true, micPermanentlyDenied = false, notificationsGranted = true),
-            onListeningChange = {}, onSensitivityChange = {}, onPauseInBatterySaverChange = {},
-            onThoughtClick = {}, onDeleteThoughts = {}, onRequestMic = {}, onOpenSettings = {},
+            onToggleListening = {}, onCatch = {}, onOpenSettings = {}, onThoughtClick = {}, onPlay = {},
+            onDeleteThoughts = {}, onRequestMic = {}, onOpenAppSettings = {},
         )
     }
 }
